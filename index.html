@@ -2,8 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#102d27" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#080f20" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tabletop FC" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="icon" type="image/png" href="%BASE_URL%icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <meta
       name="description"
       content="Tabletop FC — a local Three.js adaptation of the tactical tabletop football game."
@@ -314,6 +320,11 @@
           Enter fullscreen
         </button>
         <p class="screen-footnote">OPTIONS SAVE AUTOMATICALLY ON THIS DEVICE</p>
+        <div class="install-help">
+          <h3>Play offline</h3>
+          <p class="install-instructions">On iPhone, open this game in Safari, tap Share, then Add to Home Screen. Keep Open as Web App enabled if shown.</p>
+          <p id="offline-status" role="status">Offline play is available on the published app.</p>
+        </div>
       </section>
       <section data-panel="credits" class="screen-panel narrow-panel" hidden>
         <button class="screen-back">← Back</button

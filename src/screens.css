@@ -17,6 +17,25 @@
 body[data-screen] :is(.hud-header, .turn-dock) {
   visibility: hidden;
 }
+.install-help {
+  margin-top: 24px;
+  border-top: 1px solid #ffffff26;
+  color: #bac9dc;
+  font: 16px / 1.5 "Tabletop FC Menu", sans-serif;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.install-help h3 {
+  color: #f0f7ff;
+  margin-bottom: 8px;
+}
+@media (display-mode: standalone) {
+  .install-instructions,
+  #fullscreen,
+  #option-fullscreen {
+    display: none;
+  }
+}
 .game-screens {
   --electric: #d8ff3e;
   --ink: #080f20;
@@ -27,7 +46,7 @@ body[data-screen] :is(.hud-header, .turn-dock) {
   margin: 0;
   border: 0;
   border-radius: 0;
-  padding: 82px clamp(24px, 5vw, 80px) 36px;
+  padding: calc(82px + env(safe-area-inset-top)) max(clamp(24px, 5vw, 80px), env(safe-area-inset-right)) max(36px, env(safe-area-inset-bottom)) max(clamp(24px, 5vw, 80px), env(safe-area-inset-left));
   color: #f0f7ff;
   overflow: auto;
   background: linear-gradient(100deg, #060d1ced, #061123b8 58%, #06112373);
@@ -53,9 +72,9 @@ body[data-screen="home"] .game-screens {
 }
 .broadcast-bar {
   position: absolute;
-  top: 23px;
-  left: clamp(24px, 5vw, 80px);
-  right: clamp(24px, 5vw, 80px);
+  top: calc(23px + env(safe-area-inset-top));
+  left: max(clamp(24px, 5vw, 80px), env(safe-area-inset-left));
+  right: max(clamp(24px, 5vw, 80px), env(safe-area-inset-right));
   display: flex;
   align-items: center;
   gap: 18px;
@@ -654,7 +673,7 @@ body[data-screen="results"] .game-screens {
 .goal-camera-label {
   position: absolute;
   left: max(5vw, env(safe-area-inset-left));
-  top: 7%;
+  top: max(7%, env(safe-area-inset-top));
   color: #d8ff3e;
   font:
     600 15px "Tabletop FC Menu",
@@ -769,12 +788,12 @@ body[data-celebrating] .hud-header {
 }
 @media (max-width: 700px) {
   .game-screens {
-    padding: 65px 24px 25px;
+    padding: calc(65px + env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(25px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
   }
   .broadcast-bar {
-    top: 17px;
-    left: 24px;
-    right: 24px;
+    top: calc(17px + env(safe-area-inset-top));
+    left: max(24px, env(safe-area-inset-left));
+    right: max(24px, env(safe-area-inset-right));
     font-size: 10px;
     gap: 12px;
   }
@@ -881,8 +900,8 @@ body[data-celebrating] .hud-header {
 }
 @media (max-height: 720px) and (min-width: 701px) {
   .game-screens {
-    padding-top: 66px;
-    padding-bottom: 25px;
+    padding-top: calc(66px + env(safe-area-inset-top));
+    padding-bottom: max(25px, env(safe-area-inset-bottom));
   }
   .home-layout {
     min-height: 0;

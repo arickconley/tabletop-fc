@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "./",
   resolve: {
     // Keep using the checked-in Three.js files, including OrbitControls.
     alias: [

@@ -20,6 +20,7 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 button,
 a {
@@ -253,7 +254,7 @@ button:hover:not(:disabled) {
   left: 50%;
   bottom: max(var(--edge), env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  width: min(920px, calc(100% - var(--edge) * 2));
+  width: min(920px, calc(100% - max(var(--edge), env(safe-area-inset-left), env(safe-area-inset-right)) * 2));
   padding: 16px 18px;
   border: 1px solid #ffffff24;
   border-radius: 12px;
@@ -560,8 +561,8 @@ dialog {
   color: #f3f3e4;
   padding: 28px;
   max-width: 670px;
-  width: calc(100% - 32px);
-  max-height: calc(100dvh - 40px);
+  width: calc(100% - max(16px, env(safe-area-inset-left), env(safe-area-inset-right)) * 2);
+  max-height: calc(100dvh - max(20px, env(safe-area-inset-top), env(safe-area-inset-bottom)) * 2);
   overflow: auto;
   box-shadow: 0 25px 100px #0c251960;
 }
@@ -770,7 +771,7 @@ noscript {
     margin-top: 5px;
   }
   .turn-dock {
-    width: calc(100% - 24px);
+    width: calc(100% - max(var(--edge), env(safe-area-inset-left), env(safe-area-inset-right)) * 2);
     padding: 14px;
   }
   .dock-main {
@@ -979,7 +980,7 @@ noscript {
     font-size: 8px;
   }
   .turn-dock {
-    width: calc(100% - 20px);
+    width: calc(100% - max(var(--edge), env(safe-area-inset-left), env(safe-area-inset-right)) * 2);
     padding: 10px 12px;
   }
   .dock-main {

@@ -2,6 +2,7 @@ import * as Game from "./game.js";
 import { Board } from "./board.js";
 import { applyAction } from "./ai.js";
 import { createScreens } from "./screens.js";
+import "./pwa.js";
 
 const $ = (id) => document.getElementById(id);
 let state = Game.createGame(),

@@ -649,7 +649,8 @@ export class Board {
     const top = Math.max(0, header.bottom - viewport.top) + 12;
     const bottom = Math.max(0, viewport.bottom - dock.top) + 12;
     const usableHeight = Math.max(80, height - top - bottom);
-    const usableWidth = Math.max(120, width - 24);
+    const side = Math.max(12, header.left - viewport.left, viewport.right - header.right);
+    const usableWidth = Math.max(120, width - side * 2);
     this.camera.updateMatrixWorld(true);
     const bounds = new THREE.Box3();
     const envelopes = [

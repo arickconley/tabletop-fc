@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import * as G from "../src/game.js";
 
 const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
   headless: true,
   args: [
     "--no-sandbox",

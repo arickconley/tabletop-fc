@@ -5,6 +5,7 @@ import * as G from "../src/game.js";
 const { chromium } = createRequire(import.meta.url)("playwright");
 const base = process.env.TABLETOP_FC_URL || "http://127.0.0.1:8000";
 const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,
   headless: true,
   args: [
     "--no-sandbox",

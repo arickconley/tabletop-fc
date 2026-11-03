@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
+    "build": "node scripts/build.mjs",
+    "preview": "vite preview",
     "test": "node --test tests/*.test.js",
+    "test:pwa": "npm run build && node tests/pwa.mjs",
     "test:browser": "node tests/browser.mjs && node tests/ai-browser.mjs && node tests/screens-browser.mjs && node tests/goal-camera-browser.mjs"
   },
   "devDependencies": {

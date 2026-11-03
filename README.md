@@ -17,6 +17,48 @@ Open **http://localhost:8000** in a modern browser with WebGL 2 enabled. From an
 
 The first dependency install requires internet access; after that, the game and dev server run locally without an account or network service. Three.js 0.180.0 and OrbitControls remain included under `vendor/three/`, with their MIT license. The rulebook PDF is a local reference under the ignored `docs/` folder and is not included in Git.
 
+## GitHub Pages and iPhone installation
+
+The production build is an installable, offline-capable PWA. No backend or new runtime dependencies are needed.
+
+1. Commit and push these files to `main`.
+2. In the GitHub repository, open **Settings → Pages → Build and deployment → Source** and select **GitHub Actions**.
+3. Run **Actions → Deploy to GitHub Pages → Run workflow**, or push another commit to `main`. If a deployment ran before Pages was enabled, rerun it.
+4. Open **https://arickconley.github.io/tabletop-fc/**. The workflow runs the rules/AI tests and production PWA checks before deploying `dist`.
+
+On iPhone, open that URL in **Safari → Share → Add to Home Screen**. Keep **Open as Web App** enabled if shown, then tap **Add**. Launch Tabletop FC from its new Home Screen icon while connected once, open **Options**, and wait for **Ready to play offline on this device**. The whole game, including the computer opponent, then works in airplane mode. Portrait and landscape are supported; menus and controls account for the notch and home indicator.
+
+New releases download in the background when the game is opened online. Options shows when an update is ready. Close all Tabletop FC windows, including Safari tabs and the Home Screen app, then reopen to apply it. Updates never force a reload during a match, and they keep existing saved matches and preferences. Simply refreshing an open window may leave the old version active until all its windows close.
+
+Saves stay local to the browser/app on that device. Safari and the installed app may have separate storage; do not rely on an existing browser match transferring into the installed app. Clearing website data can remove saves and offline files, and browser storage eviction can require another online download. There is no cloud sync.
+
+To verify the production build locally:
+
+```sh
+npm ci
+npm run build
+npm run preview
+```
+
+Open **http://localhost:4173/**. Relative build paths support both the repository subdirectory on Pages and a custom domain without changing Vite configuration. Offline caching is enabled only in production builds; service workers require HTTPS or localhost, so a plain HTTP LAN address is not sufficient for testing offline installation on an iPhone.
+
+Run the self-contained production PWA checks (installs no browsers automatically):
+
+```sh
+npx playwright install chromium
+npm run test:pwa
+```
+
+For the existing gameplay checks, you can use Helium with the development server running:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE="/Applications/Helium.app/Contents/MacOS/Helium" npm run test:browser
+```
+
+Use Playwright's Chromium for `test:pwa`; Helium was inconsistent with service-worker lifecycle automation. PWA checks cover Pages subdirectory paths, icons, cached assets and AI worker, offline relaunch and saved-match recovery, simulated iPhone safe areas, and downloaded updates surviving a full browser shutdown and restart with the saved profile. Screenshots go into `test-results/`. Desktop emulation does not replace a real iPhone check of Home Screen installation, app switching, and airplane-mode launch.
+
+The manifest and icons live in `public/`; the editable icon artwork is `public/icons/icon.svg`. `scripts/build.mjs` builds the game, preserves third-party license files, removes the local-only PDF link and development import map, and generates a content-versioned `sw.js` from `src/service-worker.js`. Every output asset is precached, including fonts and the separately built AI worker. Old caches are removed only when the new worker activates, and only within this app's scope. The in-app rules remain available offline.
+
 ## Menus and match flow
 
 The title screen uses the actual 3D pitch in a floodlit miniature stadium, with an arcade selection menu and sports typography. It appears on launch with **New AI game**, **Local multiplayer**, **Options**, and **Credits**. **Continue match** appears when a saved match is available; completed matches offer **View match result**. Starting another game asks before replacing an unfinished match.
