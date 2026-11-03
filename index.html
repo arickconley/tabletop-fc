@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#102d27" />
+    <meta
+      name="description"
+      content="GRIDKICK 60 — a local Three.js adaptation of the tactical tabletop football game."
+    />
+    <title>GRIDKICK 60 · Tactical tabletop football</title>
+    <link rel="stylesheet" href="src/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./vendor/three/three.module.js",
+          "three/addons/controls/OrbitControls.js": "./vendor/three/OrbitControls.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main id="game" aria-label="GRIDKICK 60 game">
+      <div id="viewport" aria-label="Interactive 3D football board">
+        <div id="loading">Setting the table…</div>
+      </div>
+      <div class="screen-shade" aria-hidden="true"></div>
+      <header id="hud-header" class="hud-header">
+        <div class="brand" aria-label="GRIDKICK 60">
+          <span class="brand-mark">G<span>60</span></span>
+          <span
+            >GRIDKICK <b>60</b
+            ><small id="play-mode-label">PLAY VS COMPUTER</small></span
+          >
+        </div>
+        <section class="scoreboard" aria-label="Scoreboard">
+          <div id="blue-score" class="team-score blue">
+            <span class="team-dot"></span
+            ><span class="team-name"
+              ><b id="blue-name">BLUE</b
+              ><small id="blue-rolls">0 / 20</small></span
+            ><span class="score">0</span>
+          </div>
+          <div class="score-center">
+            <span id="match-period">ROLLS · 1ST HALF</span
+            ><b id="score-state">KICKOFF</b>
+          </div>
+          <div id="red-score" class="team-score red">
+            <span class="score">0</span
+            ><span class="team-name"
+              ><b id="red-name">RED · CPU</b
+              ><small id="red-rolls">0 / 20</small></span
+            ><span class="team-dot"></span>
+          </div>
+        </section>
+        <nav class="game-tools" aria-label="Game menu">
+          <button
+            id="notes-button"
+            class="icon-button"
+            aria-label="Match notes and tips"
+            title="Match notes and tips"
+          >
+            ≡
+          </button>
+          <button
+            id="rules-button"
+            class="icon-button"
+            aria-label="How to play"
+            title="How to play"
+          >
+            ?
+          </button>
+          <button
+            id="new-game"
+            class="icon-button"
+            aria-label="New match"
+            title="New match"
+          >
+            ↻
+          </button>
+          <button
+            id="fullscreen"
+            class="icon-button"
+            aria-label="Enter fullscreen"
+            aria-pressed="false"
+            title="Enter fullscreen (F)"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" />
+            </svg>
+          </button>
+        </nav>
+      </header>
+      <section id="turn-dock" class="turn-dock" aria-label="Turn controls">
+        <div class="dock-main">
+          <div class="turn-copy">
+            <span id="turn-label" class="eyebrow">KICKOFF</span>
+            <h1 id="action-title">Ready to play</h1>
+            <div id="pawn-choices"></div>
+          </div>
+          <div id="dice-area" class="dice-area" hidden>
+            <div id="die" class="die" aria-label="Die not rolled">
+              <span></span><span></span><span></span><span></span><span></span
+              ><span></span><span></span><span></span><span></span>
+            </div>
+            <span id="budget" aria-live="polite"
+              ><span id="budget-left"></span
+              ><span id="free-step" hidden>+1 free</span></span
+            >
+          </div>
+          <div
+            id="direction-pad"
+            class="direction-pad"
+            aria-label="Choose a movement direction"
+            hidden
+          ></div>
+          <div class="turn-actions">
+            <button id="undo" class="button secondary" disabled>↶ Undo</button>
+            <button id="primary" class="button primary">Kick off</button>
+          </div>
+          <details id="turn-menu" class="turn-menu">
+            <summary
+              id="turn-menu-button"
+              aria-label="Turn options"
+              title="Turn options"
+              aria-controls="turn-menu-panel"
+            >
+              ⋯
+            </summary>
+            <div id="turn-menu-panel" class="turn-menu-panel">
+              <span class="eyebrow">TURN OPTIONS</span>
+              <label class="opponent-setting" for="opponent">
+                <span>Red player</span>
+                <select id="opponent">
+                  <option value="computer">Computer</option>
+                  <option value="human">Human</option>
+                </select>
+              </label>
+              <button id="reset-turn" class="menu-button" disabled>
+                Reset turn
+              </button>
+              <button id="custom-setup" class="menu-button">
+                Place teams manually
+              </button>
+              <label class="control-setting" for="direction-toggle"
+                ><span>Direction controls</span
+                ><input id="direction-toggle" type="checkbox"
+              /></label>
+              <div class="camera-setting">
+                <span>Camera</span>
+                <div
+                  class="view-controls"
+                  role="group"
+                  aria-label="Camera controls"
+                >
+                  <button
+                    id="perspective"
+                    class="view-button active"
+                    aria-label="Perspective view"
+                    title="Perspective view"
+                    aria-pressed="true"
+                  >
+                    3D</button
+                  ><button
+                    id="top-view"
+                    class="view-button"
+                    aria-label="Top-down view"
+                    title="Top-down view"
+                    aria-pressed="false"
+                  >
+                    2D
+                  </button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+        <p
+          id="instruction"
+          class="inline-hint"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></p>
+        <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+    <dialog id="notes-dialog">
+      <div class="dialog-top">
+        <span class="eyebrow">FROM THE TOUCHLINE</span
+        ><button
+          class="icon-button close-dialog"
+          aria-label="Close match notes"
+        >
+          ✕
+        </button>
+      </div>
+      <h2>Read the play.</h2>
+      <section class="coach-card">
+        <span class="eyebrow">THE NEXT MOVE</span>
+        <p id="coach">Win space before you win the ball.</p>
+      </section>
+      <div class="panel-top">
+        <h3>Match notes</h3>
+        <span id="turn-count">PRE-MATCH</span>
+      </div>
+      <ol id="match-log" aria-live="polite"></ol>
+    </dialog>
+    <dialog id="rules">
+      <div class="dialog-top">
+        <span class="eyebrow">THE FIELD GUIDE</span
+        ><button class="icon-button close-dialog" aria-label="Close rules">
+          ✕
+        </button>
+      </div>
+      <h2>One turn. One decisive play.</h2>
+      <p>
+        Two players share this screen. Blue attacks right; red attacks left. The
+        higher score after 20 normal rolls per player wins. Equal scores are a
+        draw.
+      </p>
+      <div class="rules-grid">
+        <article>
+          <b>01 / Roll & run</b>
+          <p>
+            Roll a six-sided die and choose one pawn. Move orthogonally, one
+            square per step. You can turn or retrace, but never cross a pawn.
+            You may end a normal turn early in any legal position; unused steps
+            are discarded.
+          </p>
+        </article>
+        <article>
+          <b>02 / Strike on contact</b>
+          <p>
+            Reaching the ball ends your run. Kick in any of eight directions:
+            the first square is free, then use up to the remaining die steps.
+            Each kick can change direction once by 45°.
+          </p>
+        </article>
+        <article>
+          <b>03 / Chain a pass</b>
+          <p>
+            A teammate redirects immediately with a new free step and a fresh
+            bend. Unspent die steps carry over. Each pawn kicks only once per
+            turn. Defenders and used teammates block shots.
+          </p>
+        </article>
+        <article>
+          <b>04 / Find the net</b>
+          <p>
+            Cross the opponent’s end line from either goal-mouth square into the
+            net. No other boundary exit is legal. Goals add to the score. After
+            a goal, reset the starting formation and give the conceding team the
+            ball at its center-ring pawn for its next normal turn.
+          </p>
+        </article>
+      </div>
+      <details open>
+        <summary>The opening whistle</summary>
+        <p>
+          Each team rolls; ties are rerolled. The winner’s center-ring pawn
+          kicks exactly the roll difference, with no free steps and no goal. The
+          losing side takes the first normal turn.
+        </p>
+      </details>
+      <details open>
+        <summary>Ending a turn early</summary>
+        <p>
+          After a normal roll, use End turn to stop without moving, partway
+          through a run, or after kicking the ball onto an empty square. Unused
+          points are discarded, and the roll still counts toward your 20.
+        </p>
+        <p>
+          The position must obey the keeper, defensive-box, and opponent-path
+          rules. You must kick on contact and redirect a received pass before
+          stopping, and complete any required keeper-area relocation. Opening
+          and halftime kickoffs must still travel their exact distance.
+        </p>
+      </details>
+      <details open>
+        <summary>20 rolls each & halftime</summary>
+        <p>
+          Each player gets 20 normal die rolls, ten per half. Finish the current
+          turn before halftime or full time. Kickoff rolls do not count toward
+          the allowance, and undoing a move does not grant another roll.
+        </p>
+        <p>
+          After both players finish their tenth roll, restore the starting
+          formation and keep the score. The player who did not take the opening
+          kickoff takes the halftime kickoff, regardless of which team rolls
+          higher. Both roll for the distance (the absolute difference; reroll
+          ties). No free steps or scoring on kickoff. The other player takes the
+          first normal turn of the second half.
+        </p>
+        <p>
+          Finish both players’ twentieth rolls before deciding the result. The
+          higher score wins; equal scores are a draw. These match rules replace
+          the PDF’s first-goal-wins format.
+        </p>
+      </details>
+      <details>
+        <summary>Keepers & fair play</summary>
+        <p>
+          Only your keeper may finish in your own goal mouth. A runner that
+          kicks there must move to an empty adjacent square, free of charge. At
+          most one runner can finish in your own 2×2 box. An opposing pawn must
+          always retain an orthogonal path to the ball. Invalid turn endings
+          need to be undone.
+        </p>
+      </details>
+      <details>
+        <summary>Controls & setting up</summary>
+        <p>
+          Click a pawn, then highlighted squares, or use the direction buttons.
+          Gold marks a possible next step; a route can still become blocked
+          later. Use Undo, or Reset turn in the ⋯ menu, to try another route
+          without rerolling. Commit with End turn. Drag the pitch to orbit and
+          scroll to zoom; use 2D in the ⋯ menu for a view from above. Direction
+          controls in that menu show the arrow pad and pawn buttons; they are on
+          by default on phones and hidden by default on desktop.
+        </p>
+        <p>
+          Choose Computer as the Red player in the ⋯ menu to play solo as Blue.
+          Red rolls and plays automatically; you start kickoffs and continue
+          after goals. Choose Human to play both sides. You can change this
+          during a match without starting over. Undo and Reset turn apply to
+          your own turns.
+        </p>
+        <p>
+          Manual setup alternates pieces, keepers first. Place exactly one
+          runner in your half of the center ring, 2–3 runners on your own half
+          and 1–2 outside the ring on the far half. The ready-made lineup
+          matches the rulebook diagram.
+        </p>
+      </details>
+      <a
+        class="button secondary rulebook-link"
+        href="GRIDKICK_60_Rulebook.pdf"
+        target="_blank"
+        rel="noopener"
+        >Read the original PDF ↗</a
+      >
+    </dialog>
+    <dialog id="restart-dialog">
+      <div class="dialog-top">
+        <span class="eyebrow">A FRESH PITCH</span
+        ><button class="icon-button close-dialog" aria-label="Cancel new match">
+          ✕
+        </button>
+      </div>
+      <h2>Start a new match?</h2>
+      <p>Your current match will be replaced with the rulebook formation.</p>
+      <button id="confirm-restart" class="button primary">
+        Start new match ↗
+      </button>
+    </dialog>
+    <noscript
+      >This game needs JavaScript enabled in a browser with WebGL 2
+      support.</noscript
+    >
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>
