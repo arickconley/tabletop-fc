@@ -10,6 +10,7 @@
     />
     <title>GRIDKICK 60 · Tactical tabletop football</title>
     <link rel="stylesheet" href="src/style.css" />
+    <link rel="stylesheet" href="src/screens.css" />
     <script type="importmap">
       {
         "imports": {
@@ -25,6 +26,19 @@
         <div id="loading">Setting the table…</div>
       </div>
       <div class="screen-shade" aria-hidden="true"></div>
+      <section id="goal-celebration" hidden aria-label="Goal celebration">
+        <div class="goal-broadcast" role="status" aria-live="polite">
+          <span id="goal-team">Blue scores</span>
+          <strong>GOAL<span>!</span></strong>
+          <span id="goal-score">BLUE 1 — 0 RED</span>
+        </div>
+        <span class="goal-camera-label" aria-hidden="true"
+          >GK60 / GOAL CAM</span
+        >
+        <button id="skip-goal" type="button">
+          Skip celebration <span aria-hidden="true">›</span>
+        </button>
+      </section>
       <header id="hud-header" class="hud-header">
         <div class="brand" aria-label="GRIDKICK 60">
           <span class="brand-mark">G<span>60</span></span>
@@ -71,12 +85,12 @@
             ?
           </button>
           <button
-            id="new-game"
+            id="pause-button"
             class="icon-button"
-            aria-label="New match"
-            title="New match"
+            aria-label="Pause menu"
+            title="Pause menu (Esc)"
           >
-            ↻
+            Ⅱ
           </button>
           <button
             id="fullscreen"
@@ -194,6 +208,218 @@
         <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
       </section>
     </main>
+    <dialog id="game-screens" class="game-screens" aria-labelledby="home-title">
+      <div class="broadcast-bar" aria-hidden="true">
+        <span><i></i> MATCHDAY</span><b>GK / 60</b
+        ><span>TABLETOP FOOTBALL</span>
+      </div>
+      <div id="confetti" aria-hidden="true"></div>
+      <section data-panel="home" class="home-layout screen-panel">
+        <div class="home-copy">
+          <span class="screen-eyebrow">BIG GAME. SMALL PITCH.</span>
+          <h1 id="home-title" class="game-title">
+            <span>GRID</span><span>KICK<em>60</em></span>
+          </h1>
+          <p class="home-tagline">ROLL THE DICE. RULE THE PITCH.</p>
+          <div class="home-actions">
+            <button
+              id="continue-match"
+              class="screen-button continue-button"
+              hidden
+            >
+              <span id="continue-label">Continue match</span
+              ><small id="saved-summary"></small>
+            </button>
+            <button id="start-ai" class="screen-button screen-primary">
+              <span>New AI game</span><small>1 PLAYER · YOU VS CPU</small
+              ><b aria-hidden="true">▶</b>
+            </button>
+            <button id="start-local" class="screen-button">
+              <span>Local multiplayer</span
+              ><small>2 PLAYERS · SAME SCREEN</small
+              ><b aria-hidden="true">▶</b>
+            </button>
+          </div>
+          <div class="home-links">
+            <button data-open-screen="options">Options</button
+            ><button data-open-screen="credits">Credits</button>
+          </div>
+          <p class="screen-footnote menu-key-hints">
+            <kbd>↑</kbd><kbd>↓</kbd> SELECT <kbd>ENTER</kbd> PLAY
+          </p>
+        </div>
+        <div class="match-billboard" aria-hidden="true">
+          <span class="team-blue">BLUE</span><b>VS</b
+          ><span class="team-red">RED</span><small>20 ROLLS. ONE WINNER.</small>
+        </div>
+      </section>
+      <section data-panel="pause" class="screen-panel narrow-panel" hidden>
+        <span class="screen-eyebrow">TAKE A BREATHER</span>
+        <h2 id="pause-title">Match paused</h2>
+        <p>Your match is saved on this device.</p>
+        <div class="screen-actions">
+          <button id="resume-match" class="screen-button screen-primary">
+            Resume match</button
+          ><button class="screen-button" data-open-screen="options">
+            Options</button
+          ><button id="new-game" class="screen-button">Restart match</button
+          ><button id="pause-main-menu" class="screen-button screen-quiet">
+            Main menu
+          </button>
+        </div>
+        <p class="screen-footnote">ESC TO RESUME</p>
+      </section>
+      <section data-panel="options" class="screen-panel narrow-panel" hidden>
+        <button class="screen-back">← Back</button
+        ><span class="screen-eyebrow">MAKE IT YOUR GAME</span>
+        <h2 id="options-title">Options</h2>
+        <div class="settings-list">
+          <label for="option-camera"
+            ><span>Camera<small>Your preferred view of the pitch.</small></span
+            ><select id="option-camera">
+              <option value="perspective">3D perspective</option>
+              <option value="top">2D overhead</option>
+            </select></label
+          >
+          <label for="option-directions"
+            ><span
+              >Direction controls<small
+                >On-screen arrows and pawn buttons.</small
+              ></span
+            ><select id="option-directions">
+              <option value="auto">Automatic</option>
+              <option value="show">Always show</option>
+              <option value="hide">Hide</option>
+            </select></label
+          >
+          <label for="option-motion"
+            ><span
+              >Motion<small
+                >Reduce animations and skip goal camera moves.</small
+              ></span
+            ><select id="option-motion">
+              <option value="system">Use device setting</option>
+              <option value="reduced">Reduced motion</option>
+            </select></label
+          >
+          <label for="option-celebrations"
+            ><span
+              >Celebration effects<small
+                >Goal cameras, fireworks and victory confetti.</small
+              ></span
+            ><input type="checkbox" id="option-celebrations"
+          /></label>
+        </div>
+        <button id="option-fullscreen" class="screen-button">
+          Enter fullscreen
+        </button>
+        <p class="screen-footnote">OPTIONS SAVE AUTOMATICALLY ON THIS DEVICE</p>
+      </section>
+      <section data-panel="credits" class="screen-panel narrow-panel" hidden>
+        <button class="screen-back">← Back</button
+        ><span class="screen-eyebrow">FROM TABLETOP TO SCREEN</span>
+        <h2 id="credits-title">Credits</h2>
+        <div class="credits-list">
+          <div>
+            <h3>Original tabletop game</h3>
+            <p>
+              GRIDKICK 60. Adapted from the supplied rulebook for the 3D-printed
+              soccer game.
+            </p>
+          </div>
+          <div>
+            <h3>Digital edition</h3>
+            <p>
+              A local adaptation with 20-roll matches, halftime, and a computer
+              opponent. Pitch, pieces, and visual effects are drawn in code.
+            </p>
+          </div>
+          <div>
+            <h3>Built with Three.js</h3>
+            <p>
+              Three.js and OrbitControls by the Three.js authors.
+              <a href="vendor/three/LICENSE" target="_blank" rel="noopener"
+                >MIT license ↗</a
+              >
+            </p>
+          </div>
+        </div>
+        <div class="credits-list">
+          <div>
+            <h3>Type design</h3>
+            <p>
+              Barlow Condensed by Jeremy Tribby and the Barlow Project Authors.
+              <a
+                href="vendor/fonts/barlow-condensed/OFL.txt"
+                target="_blank"
+                rel="noopener"
+                >SIL Open Font License ↗</a
+              >
+            </p>
+          </div>
+        </div>
+        <p class="screen-footnote">THANK YOU FOR PLAYING.</p>
+      </section>
+      <section data-panel="results" class="screen-panel results-panel" hidden>
+        <span id="results-kicker" class="screen-eyebrow">FULL TIME</span>
+        <svg
+          id="results-trophy"
+          class="results-trophy"
+          viewBox="0 0 120 120"
+          aria-hidden="true"
+        >
+          <g
+            fill="none"
+            stroke="currentColor"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M35 20H85V43Q85 72 60 72Q35 72 35 43Z" fill="#e8bb5a22" />
+            <path
+              d="M35 28H20V40Q20 56 39 56M85 28H100V40Q100 56 81 56M60 73V94M42 101H78M48 94H72"
+            />
+          </g>
+          <path
+            d="M60 30L64 40L75 41L67 48L69 59L60 53L51 59L53 48L45 41L56 40Z"
+            fill="currentColor"
+          />
+        </svg>
+        <div
+          id="results-symbol"
+          class="results-symbol"
+          aria-hidden="true"
+          hidden
+        >
+          =
+        </div>
+        <h2 id="results-title">You win!</h2>
+        <p id="results-message"></p>
+        <div class="results-score" aria-label="Final score">
+          <div id="result-blue-team">
+            <span id="results-blue-label">BLUE</span
+            ><strong id="results-blue">0</strong>
+          </div>
+          <span class="score-divider" aria-hidden="true">–</span>
+          <div id="result-red-team">
+            <span id="results-red-label">RED</span
+            ><strong id="results-red">0</strong>
+          </div>
+        </div>
+        <p class="results-meta">20 ROLLS EACH · FULL TIME</p>
+        <div class="screen-actions">
+          <button id="play-again" class="screen-button screen-primary">
+            Play again</button
+          ><button id="results-main-menu" class="screen-button">
+            Main menu
+          </button>
+        </div>
+      </section>
+    </dialog>
+    <div id="match-intro" hidden aria-hidden="true">
+      <span>MATCH READY</span><strong><b>BLUE</b><i>VS</i><b>RED</b></strong
+      ><small>MAKE EVERY ROLL COUNT</small>
+    </div>
     <dialog id="notes-dialog">
       <div class="dialog-top">
         <span class="eyebrow">FROM THE TOUCHLINE</span
@@ -224,9 +450,9 @@
       </div>
       <h2>One turn. One decisive play.</h2>
       <p>
-        Two players share this screen. Blue attacks right; red attacks left. The
-        higher score after 20 normal rolls per player wins. Equal scores are a
-        draw.
+        Play Blue against the computer, or share this screen with a second
+        player. Blue attacks right; red attacks left. The higher score after 20
+        normal rolls per player wins. Equal scores are a draw.
       </p>
       <div class="rules-grid">
         <article>
@@ -344,7 +570,7 @@
       </details>
       <a
         class="button secondary rulebook-link"
-        href="GRIDKICK_60_Rulebook.pdf"
+        href="docs/GRIDKICK_60_Rulebook.pdf"
         target="_blank"
         rel="noopener"
         >Read the original PDF ↗</a
@@ -358,7 +584,8 @@
         </button>
       </div>
       <h2>Start a new match?</h2>
-      <p>Your current match will be replaced with the rulebook formation.</p>
+      <p>Your current match will be replaced. Your options will be kept.</p>
+      <button class="button secondary close-dialog">Keep current match</button>
       <button id="confirm-restart" class="button primary">
         Start new match ↗
       </button>

@@ -4,11 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8000 --bind 127.0.0.1",
+    "dev": "vite",
+    "start": "vite",
     "test": "node --test tests/*.test.js",
-    "test:browser": "node tests/browser.mjs && node tests/ai-browser.mjs"
+    "test:browser": "node tests/browser.mjs && node tests/ai-browser.mjs && node tests/screens-browser.mjs && node tests/goal-camera-browser.mjs"
   },
   "devDependencies": {
-    "playwright": "1.56.1"
+    "playwright": "1.56.1",
+    "vite": "8.3.5"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

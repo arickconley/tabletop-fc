@@ -1,0 +1,1026 @@
+@font-face {
+  font-family: "GK Display";
+  src: url("../vendor/fonts/barlow-condensed/BarlowCondensed-BlackItalic.ttf")
+    format("truetype");
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "GK Menu";
+  src: url("../vendor/fonts/barlow-condensed/BarlowCondensed-SemiBold.ttf")
+    format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+body[data-screen] :is(.hud-header, .turn-dock) {
+  visibility: hidden;
+}
+.game-screens {
+  --electric: #d8ff3e;
+  --ink: #080f20;
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 82px clamp(24px, 5vw, 80px) 36px;
+  color: #f0f7ff;
+  overflow: auto;
+  background: linear-gradient(100deg, #060d1ced, #061123b8 58%, #06112373);
+}
+.game-screens[open] {
+  display: flex;
+  flex-direction: column;
+}
+.game-screens::backdrop {
+  background: transparent;
+  backdrop-filter: none;
+}
+body[data-screen="home"] .game-screens {
+  background:
+    linear-gradient(
+      90deg,
+      #080f20f5,
+      #080f20c9 28%,
+      #080f2038 56%,
+      transparent 80%
+    ),
+    linear-gradient(0deg, #080f20d9, transparent 28%);
+}
+.broadcast-bar {
+  position: absolute;
+  top: 23px;
+  left: clamp(24px, 5vw, 80px);
+  right: clamp(24px, 5vw, 80px);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font:
+    600 13px "GK Menu",
+    sans-serif;
+  letter-spacing: 2px;
+  color: #8192ad;
+  border-bottom: 1px solid #8eb4d12e;
+  padding-bottom: 11px;
+}
+.broadcast-bar > span:first-child {
+  color: #d8ff3e;
+}
+.broadcast-bar > span:last-child {
+  margin-left: auto;
+}
+.broadcast-bar b {
+  font-size: 16px;
+  color: #fff;
+  letter-spacing: 0;
+  border-left: 1px solid #ffffff38;
+  padding-left: 18px;
+}
+.broadcast-bar i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #d8ff3e;
+  border-radius: 50%;
+  margin-right: 6px;
+  box-shadow: 0 0 12px #d8ff3e80;
+}
+.screen-panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin: auto;
+}
+.screen-eyebrow {
+  display: block;
+  font:
+    600 14px "GK Menu",
+    sans-serif;
+  color: #b7cadf;
+  letter-spacing: 3px;
+}
+.home-layout {
+  max-width: none;
+  min-height: 620px;
+  display: flex;
+  align-items: center;
+}
+.home-copy {
+  width: clamp(320px, 35vw, 510px);
+  position: relative;
+  z-index: 2;
+}
+.home-copy > .screen-eyebrow {
+  color: #6bc8ff;
+}
+.game-title {
+  font:
+    italic 900 clamp(96px, 10vw, 152px) / 0.76 "GK Display",
+    Impact,
+    sans-serif;
+  letter-spacing: -2px;
+  margin: 20px 0 25px;
+  color: #f5f9ff;
+  text-shadow:
+    0 6px 0 #20395e,
+    0 10px 0 #030a17,
+    0 14px 30px #0008;
+}
+.game-title > span {
+  display: block;
+  position: relative;
+  width: max-content;
+}
+.game-title > span:last-child {
+  padding-left: 10px;
+}
+.game-title em {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 6px;
+  font: inherit;
+  font-size: 0.49em;
+  color: #101b27;
+  background: var(--electric);
+  padding: 5px 10px 10px 4px;
+  line-height: 1;
+  transform: rotate(-10deg);
+  text-shadow: none;
+  box-shadow: 5px 5px 0 #14223b;
+}
+.home-tagline {
+  font:
+    600 15px "GK Menu",
+    sans-serif;
+  letter-spacing: 2px;
+  color: #8b9fb8;
+  margin: 0 0 25px;
+}
+.home-actions,
+.screen-actions {
+  display: grid;
+  gap: 8px;
+}
+.screen-button {
+  position: relative;
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-left: 3px solid #718bad70;
+  border-radius: 0;
+  padding: 13px 22px;
+  color: #f1f7ff;
+  background: #112039e8;
+  font:
+    600 25px/1 "GK Menu",
+    sans-serif;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  transition:
+    transform 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.screen-button small {
+  display: block;
+  font:
+    600 11px/1.4 "GK Menu",
+    sans-serif;
+  color: #90a6c0;
+  margin-top: 6px;
+  letter-spacing: 1.1px;
+}
+.screen-button b {
+  position: absolute;
+  right: 20px;
+  top: 23px;
+  font-size: 16px;
+}
+.home-actions .screen-button {
+  padding-left: 48px;
+  padding-right: 40px;
+}
+.home-actions .screen-button::before {
+  content: "▶";
+  position: absolute;
+  top: 21px;
+  left: 18px;
+  font:
+    600 13px "GK Menu",
+    sans-serif;
+  color: #6985a8;
+}
+.home-actions .screen-button > b {
+  display: none;
+}
+.screen-button:is(:hover, :focus-visible),
+.screen-primary {
+  background: var(--electric);
+  color: #0b1727;
+  border-color: var(--electric);
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--electric),
+    5px 5px 0 #010a1366;
+}
+.screen-button:is(:hover, :focus-visible) {
+  transform: translateX(5px);
+}
+.screen-button:is(:hover, :focus-visible) small,
+.screen-primary small {
+  color: #354227;
+}
+.home-actions .screen-primary {
+  color: #f1f7ff;
+  background: #112039e8;
+  border-color: #718bad70;
+  box-shadow: none;
+}
+.home-actions .screen-primary small {
+  color: #90a6c0;
+}
+.home-actions .screen-button:is(:hover, :focus-visible) {
+  color: #0b1727;
+  background: var(--electric);
+  border-color: var(--electric);
+  box-shadow: 6px 6px 0 #0004;
+}
+.home-actions .screen-button:is(:hover, :focus-visible)::before,
+.home-actions .screen-button:is(:hover, :focus-visible) small {
+  color: #243323;
+}
+.continue-button {
+  border-left-color: #61c5ff;
+}
+.home-links {
+  display: flex;
+  gap: 28px;
+  margin-top: 20px;
+}
+.home-links button,
+.screen-back {
+  border: 0;
+  padding: 6px 0;
+  background: transparent;
+  color: #b4c9e3;
+  font:
+    600 20px "GK Menu",
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.home-links button:is(:hover, :focus-visible),
+.screen-back:is(:hover, :focus-visible) {
+  color: var(--electric);
+  outline-color: var(--electric);
+}
+.screen-footnote {
+  color: #7c92ad;
+  font:
+    600 11px/1.5 "GK Menu",
+    sans-serif;
+  letter-spacing: 1.7px;
+  margin: 24px 0 0;
+}
+.menu-key-hints {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+kbd {
+  border: 1px solid #8aa5c34f;
+  border-bottom-width: 2px;
+  padding: 1px 5px;
+  color: #a6bad0;
+  font: inherit;
+}
+.menu-key-hints kbd:nth-child(3) {
+  margin-left: 14px;
+}
+.match-billboard {
+  position: absolute;
+  right: 2%;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  width: 46%;
+  font:
+    italic 900 42px "GK Display",
+    sans-serif;
+  transform: rotate(-4deg);
+}
+.match-billboard > span {
+  padding: 2px 26px 6px;
+  background: #14273f;
+  box-shadow: 5px 5px 0 #030b19;
+}
+.match-billboard .team-blue {
+  border-bottom: 4px solid #3ab6ff;
+  color: #75d1ff;
+}
+.match-billboard .team-red {
+  border-bottom: 4px solid #ff536e;
+  color: #ff8798;
+}
+.match-billboard b {
+  font-size: 24px;
+  color: #d8ff3e;
+}
+.match-billboard small {
+  flex-basis: 100%;
+  text-align: center;
+  font:
+    600 12px "GK Menu",
+    sans-serif;
+  letter-spacing: 4px;
+  color: #8ca6c5;
+}
+.narrow-panel {
+  max-width: 620px;
+  background: #0b172bef;
+  border-left: 5px solid var(--electric);
+  padding: 32px 36px;
+  box-shadow: 14px 14px 0 #0004;
+}
+.narrow-panel h2 {
+  font:
+    italic 900 clamp(40px, 6vw, 68px) / 1 "GK Display",
+    sans-serif;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin: 10px 0 18px;
+}
+.narrow-panel > p {
+  font-size: 13px;
+  color: #9cafc9;
+  line-height: 1.6;
+}
+.narrow-panel .screen-actions {
+  margin-top: 28px;
+}
+.screen-back {
+  display: block;
+  margin: 0 0 22px;
+  font-size: 16px;
+}
+.screen-quiet {
+  background: #0e1b30;
+  color: #9cafc9;
+}
+.settings-list {
+  margin: 24px 0;
+}
+.settings-list label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid #6384a833;
+  font:
+    600 22px "GK Menu",
+    sans-serif;
+}
+.settings-list small {
+  display: block;
+  font:
+    12px/1.5 Arial,
+    sans-serif;
+  color: #8ba3c0;
+  margin-top: 5px;
+}
+.settings-list select {
+  flex-shrink: 0;
+  max-width: 50%;
+  min-height: 44px;
+  border: 1px solid #6584a66b;
+  background: #162b44;
+  color: #eff7ff;
+  border-radius: 0;
+  padding: 8px 12px;
+  font:
+    600 17px "GK Menu",
+    sans-serif;
+}
+.settings-list input {
+  width: 23px;
+  height: 23px;
+  flex-shrink: 0;
+  accent-color: var(--electric);
+}
+.settings-list :is(select, input):focus-visible {
+  outline: 3px solid var(--electric);
+  outline-offset: 3px;
+}
+.credits-list > div {
+  border-top: 1px solid #6384a833;
+  padding: 18px 0;
+}
+.credits-list h3 {
+  font:
+    600 22px "GK Menu",
+    sans-serif;
+  color: #d8ff3e;
+  text-transform: uppercase;
+}
+.credits-list p {
+  font-size: 13px;
+  color: #9cafc9;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+.credits-list a {
+  text-underline-offset: 4px;
+}
+body[data-screen="results"] .game-screens {
+  background: linear-gradient(0deg, #050e20f5 8%, #050e20c4 55%, #050e206b);
+}
+.results-panel {
+  max-width: 850px;
+  text-align: center;
+}
+.results-panel .screen-eyebrow {
+  color: var(--electric);
+}
+.results-trophy {
+  width: 100px;
+  height: 100px;
+  display: block;
+  margin: 12px auto 0;
+  color: var(--electric);
+  filter: drop-shadow(0 0 35px #d8ff3e70);
+  animation: trophy-arrive 0.6s cubic-bezier(0.15, 0.75, 0.3, 1.3) both;
+}
+@keyframes trophy-arrive {
+  from {
+    opacity: 0;
+    transform: scale(2) rotate(-20deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.results-symbol {
+  margin: 20px auto;
+  color: #92a9c5;
+  font:
+    italic 900 50px "GK Display",
+    sans-serif;
+}
+.results-panel h2 {
+  font:
+    italic 900 clamp(62px, 9vw, 132px) / 0.95 "GK Display",
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  margin: 10px 0;
+  text-shadow:
+    0 6px 0 #294568,
+    0 10px 25px #0008;
+}
+.results-panel > p {
+  color: #a7bcd6;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.results-score {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin: 28px auto 12px;
+  max-width: 500px;
+}
+.results-score > div {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 18px;
+  border-bottom: 4px solid currentColor;
+  background: #102d49c9;
+  transform: skewX(-5deg);
+}
+.results-score > div > * {
+  transform: skewX(5deg);
+}
+.results-score span {
+  display: block;
+  font:
+    600 15px "GK Menu",
+    sans-serif;
+  letter-spacing: 1.5px;
+}
+#result-blue-team {
+  color: #64c8ff;
+  background: linear-gradient(135deg, #143b60e6, #091426e6);
+}
+#result-red-team {
+  color: #ff7a8f;
+  background: linear-gradient(135deg, #542539e6, #091426e6);
+}
+.results-score strong {
+  display: block;
+  font:
+    600 86px/1 "GK Menu",
+    monospace;
+  color: white;
+}
+.results-score .result-winner {
+  box-shadow: 0 0 0 1px #d8ff3e9c;
+}
+.results-score .score-divider {
+  font:
+    italic 900 26px "GK Display",
+    sans-serif;
+  color: #b3c3d8;
+}
+.results-panel .results-meta {
+  font:
+    600 11px "GK Menu",
+    sans-serif;
+  letter-spacing: 2px;
+  color: #7993b0;
+  margin-bottom: 26px;
+}
+.results-panel .screen-actions {
+  max-width: 420px;
+  margin: auto;
+}
+.results-panel .screen-button {
+  text-align: center;
+}
+#confetti {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+#confetti i {
+  position: absolute;
+  top: -24px;
+  left: var(--x);
+  width: 8px;
+  height: 14px;
+  animation: confetti-fall 3.7s var(--delay) ease-in both;
+}
+@keyframes confetti-fall {
+  from {
+    transform: translate3d(0, -20px, 0) rotate(0);
+    opacity: 0.95;
+  }
+  to {
+    transform: translate3d(var(--drift), 110dvh, 0) rotate(var(--spin));
+    opacity: 0;
+  }
+}
+#match-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0a1528;
+  color: #d8ff3e;
+  pointer-events: none;
+  animation: match-wipe 0.85s ease-in-out both;
+}
+#goal-celebration {
+  --goal-color: #65c9ff;
+  --cut-opacity: 1;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  color: #f5f8ff;
+  background: linear-gradient(
+    #060d1d 0 5%,
+    transparent 5% 70%,
+    #060d1da8 90%,
+    #060d1d 95%
+  );
+}
+#goal-celebration[data-team="red"] {
+  --goal-color: #ff6e88;
+}
+#goal-celebration::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #080f20;
+  opacity: var(--cut-opacity);
+}
+.goal-broadcast {
+  position: absolute;
+  left: max(5vw, env(safe-area-inset-left));
+  bottom: 11%;
+  display: grid;
+  justify-items: start;
+  transform: rotate(-3deg);
+  font:
+    600 clamp(18px, 2.3vw, 28px) "GK Menu",
+    sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+#goal-team {
+  padding: 4px 16px;
+  background: var(--goal-color);
+  color: #080f20;
+}
+.goal-broadcast strong {
+  font:
+    italic 900 clamp(90px, 13vw, 180px) / 0.95 "GK Display",
+    sans-serif;
+  text-shadow: 5px 6px 0 #080f20;
+}
+.goal-broadcast strong span {
+  color: #d8ff3e;
+}
+#goal-score {
+  padding: 5px 14px;
+  background: #080f20;
+}
+.goal-camera-label {
+  position: absolute;
+  left: max(5vw, env(safe-area-inset-left));
+  top: 7%;
+  color: #d8ff3e;
+  font:
+    600 15px "GK Menu",
+    sans-serif;
+  letter-spacing: 3px;
+}
+#skip-goal {
+  position: absolute;
+  right: max(5vw, env(safe-area-inset-right));
+  bottom: max(6%, env(safe-area-inset-bottom));
+  z-index: 1;
+  min-height: 44px;
+  padding: 8px 18px;
+  border: 1px solid #aac3dd80;
+  background: #0b192de8;
+  color: #f5f8ff;
+  font:
+    600 18px "GK Menu",
+    sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+#skip-goal span {
+  margin-left: 18px;
+  color: #d8ff3e;
+}
+#skip-goal:is(:hover, :focus-visible) {
+  outline: 2px solid #d8ff3e;
+  outline-offset: 3px;
+}
+body[data-celebrating] :is(.turn-dock, .brand, .scoreboard) {
+  visibility: hidden;
+}
+body[data-celebrating] .game-tools {
+  position: relative;
+  z-index: 11;
+}
+body[data-celebrating] .hud-header {
+  z-index: 11;
+}
+.screen-shade {
+  box-shadow: inset 0 0 160px #040b2140;
+}
+.brand {
+  color: #f5f8ff;
+}
+.brand small {
+  color: #9fb2c9;
+}
+.brand-mark {
+  background: #172d46;
+  color: #d8ff3e;
+}
+@media (max-width: 600px) {
+  .goal-broadcast {
+    bottom: 17%;
+  }
+}
+#match-intro strong {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  font:
+    italic 900 clamp(56px, 10vw, 140px) "GK Display",
+    sans-serif;
+}
+#match-intro strong b:first-child {
+  color: #65c9ff;
+}
+#match-intro strong b:last-child {
+  color: #ff6e88;
+}
+#match-intro strong i {
+  font-size: 0.4em;
+}
+#match-intro > span,
+#match-intro small {
+  font:
+    600 16px "GK Menu",
+    sans-serif;
+  letter-spacing: 6px;
+}
+@keyframes match-wipe {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  23%,
+  70% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .results-trophy,
+  #confetti i,
+  #match-intro {
+    animation: none;
+  }
+  #confetti {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .game-screens {
+    padding: 65px 24px 25px;
+  }
+  .broadcast-bar {
+    top: 17px;
+    left: 24px;
+    right: 24px;
+    font-size: 10px;
+    gap: 12px;
+  }
+  .broadcast-bar > span:last-child {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .broadcast-bar b {
+    font-size: 12px;
+    padding-left: 12px;
+  }
+  body[data-screen="home"] .game-screens {
+    background:
+      linear-gradient(0deg, #080f20fa 5%, #080f20dd 26%, transparent 62%),
+      linear-gradient(180deg, #080f2070, transparent 40%);
+  }
+  .home-layout {
+    min-height: 0;
+    align-items: start;
+    margin: 0;
+  }
+  .home-copy {
+    width: 100%;
+  }
+  .home-copy > .screen-eyebrow {
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+  .game-title {
+    font-size: 82px;
+    margin: 14px 0 18px;
+  }
+  .home-tagline {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+  }
+  .home-actions {
+    margin-top: clamp(60px, calc(100dvh - 650px), 190px);
+  }
+  .home-links {
+    margin-top: 16px;
+  }
+  .screen-button {
+    font-size: 23px;
+    min-height: 50px;
+    padding: 12px 18px;
+  }
+  .home-actions .screen-button {
+    padding-left: 40px;
+  }
+  .home-actions .screen-button::before {
+    left: 14px;
+  }
+  .home-actions .screen-button small {
+    font-size: 10px;
+  }
+  .match-billboard {
+    display: none;
+  }
+  .menu-key-hints {
+    display: none;
+  }
+  .narrow-panel {
+    padding: 24px 20px;
+  }
+  .narrow-panel h2 {
+    font-size: 45px;
+  }
+  .settings-list label {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .settings-list select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .settings-list label:has(input) {
+    flex-wrap: nowrap;
+  }
+  .results-panel h2 {
+    font-size: 66px;
+  }
+  .results-score {
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .results-score > div {
+    padding: 10px;
+  }
+  .results-score span {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .results-score strong {
+    font-size: 65px;
+  }
+  .results-trophy {
+    width: 86px;
+    height: 86px;
+  }
+  #match-intro strong {
+    gap: 15px;
+  }
+}
+@media (max-height: 720px) and (min-width: 701px) {
+  .game-screens {
+    padding-top: 66px;
+    padding-bottom: 25px;
+  }
+  .home-layout {
+    min-height: 0;
+  }
+  .game-title {
+    font-size: 98px;
+    margin: 12px 0 20px;
+  }
+  .home-copy {
+    width: 360px;
+  }
+  .home-actions {
+    gap: 6px;
+  }
+  .home-tagline {
+    margin-bottom: 16px;
+  }
+  .screen-button {
+    font-size: 22px;
+    min-height: 45px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .home-links {
+    margin-top: 10px;
+  }
+  .menu-key-hints {
+    display: none;
+  }
+  .match-billboard {
+    font-size: 30px;
+    bottom: 10px;
+  }
+}
+@media (max-height: 610px) {
+  .results-panel h2 {
+    font-size: 58px;
+  }
+  .results-trophy {
+    width: 52px;
+    height: 52px;
+    margin-top: 8px;
+  }
+  .results-panel .results-meta {
+    margin-bottom: 14px;
+  }
+  .results-score {
+    margin-top: 12px;
+  }
+  .results-score strong {
+    font-size: 52px;
+  }
+  .results-panel .screen-button {
+    min-height: 43px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+}
+@media (max-height: 450px) and (min-width: 701px) {
+  .home-copy {
+    width: 350px;
+  }
+  .home-copy > .screen-eyebrow,
+  .home-tagline {
+    display: none;
+  }
+  .game-title {
+    font-size: 72px;
+  }
+  .home-actions .screen-button small {
+    display: none;
+  }
+  .home-actions .screen-button::before {
+    top: 15px;
+  }
+  .home-links {
+    gap: 20px;
+  }
+  .match-billboard {
+    right: 0;
+    width: 40%;
+  }
+}
+
+/* Keep the match HUD in the same sports-game visual language. */
+:root {
+  --panel: #0b192df5;
+  --gold: #d8ff3e;
+  --muted: #9fb2c9;
+}
+.scoreboard,
+.game-tools,
+.turn-dock {
+  border-radius: 4px;
+  border-color: #54759845;
+}
+.brand {
+  font-family: "GK Menu", sans-serif;
+  font-size: 23px;
+}
+.scoreboard .score {
+  font-family: "GK Menu", sans-serif;
+}
+.turn-copy h1 {
+  font-family: "GK Menu", sans-serif;
+  font-size: 23px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.turn-actions .button {
+  border-radius: 2px;
+}
+.turn-menu-panel {
+  background: #0d2038;
+  border-color: #46698c;
+  border-radius: 4px;
+}
+@media (max-width: 700px) and (max-height: 650px) {
+  .game-title {
+    font-size: 67px;
+  }
+  .home-tagline {
+    font-size: 10px;
+  }
+  .home-actions {
+    margin-top: 65px;
+  }
+}
+@media (max-width: 760px) {
+  .brand {
+    font-size: 19px;
+  }
+  .turn-copy h1 {
+    font-size: 20px;
+  }
+}
+@media (max-width: 380px) {
+  .brand {
+    font-size: 17px;
+  }
+}

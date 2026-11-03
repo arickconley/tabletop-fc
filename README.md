@@ -4,19 +4,38 @@ A local Three.js adaptation of `GRIDKICK_60_Rulebook.pdf`. Play solo against the
 
 ## Run
 
-From this folder:
+Use Node.js 24 (configured in `mise.toml`), or Node.js 22.12 or newer. From this folder:
 
 ```sh
-python3 -m http.server 8000 --bind 127.0.0.1
+npm install
+npm run dev
 ```
 
-Open **http://localhost:8000** in a modern browser with WebGL 2 enabled. Serve the files over HTTP; opening `index.html` directly as a file will not load JavaScript modules correctly.
+Open **http://localhost:8000** in a modern browser with WebGL 2 enabled. From another computer on the same network, use the **Network** URL printed by Vite, such as `http://10.0.1.54:8000`. `npm start` runs the same Node-based dev server.
 
-No build, npm install, account, or internet connection is needed. Three.js 0.180.0 and OrbitControls are included under `vendor/three/`, with their MIT license. The original PDF stays available from the game.
+[Vite](https://vite.dev/guide/) watches the project for changes: CSS updates live without resetting the game, while JavaScript and HTML edits automatically reload to the title screen, where Continue match restores your saved turn. Keep using the same hostname and port to retain your browser's saved match. Port 8000 is fixed; if another server is using it, stop that server before starting Vite.
+
+The first dependency install requires internet access; after that, the game and dev server run locally without an account or network service. Three.js 0.180.0 and OrbitControls remain included under `vendor/three/`, with their MIT license. The rulebook PDF is a local reference under the ignored `docs/` folder and is not included in Git.
+
+## Menus and match flow
+
+The title screen uses the actual 3D pitch in a floodlit miniature stadium, with an arcade selection menu and sports typography. It appears on launch with **New AI game**, **Local multiplayer**, **Options**, and **Credits**. **Continue match** appears when a saved match is available; completed matches offer **View match result**. Starting another game asks before replacing an unfinished match.
+
+During play, **Ⅱ** or **Esc** opens the pause menu: Resume match, Options, Restart match, and Main menu. The computer and pitch animation pause while you use these menus. Returning to the title screen preserves the match. Escape returns from Options/Credits, resumes from Pause, and leaves the title/results screens open until you choose an action. Keyboard focus stays within the active menu; Up/Down selects menu actions and Enter activates them. The stadium presentation preserves your gameplay camera, including changes made in Options. A brief Blue-versus-Red transition introduces new matches and is skipped with reduced motion.
+
+At full time, a result screen shows the winner and final score, with **Play again** and **Main menu**. A solo Blue victory says **You win!**; a computer win is identified as a defeat. Local matches name the winning team, and ties have a separate draw screen. Victories show a trophy and a brief confetti celebration. Play again preserves the chosen mode and options and resets the match. A goal before full time continues the match normally.
+
+The floodlit stadium stays visible during play, with tiered stands and blue/red perimeter lights. Each new goal triggers a short field-level camera dolly toward the scoring net, team-colored fireworks, and a broadcast goal graphic. **Skip celebration** returns immediately to play. The sequence restores your previous camera view, orbit, and zoom, then waits for **Continue** (or Halftime / Full time). Pausing ends the sequence without changing the score. Loading a saved goal does not replay its celebration.
+
+The pieces are original cartoon footballers with oversized heads, five hairstyles, varied skin tones, numbered shirts, shorts, socks, and boots. Keepers wear contrasting shirts and gloves; team rings and number labels keep the board readable. Players turn and run between squares, kick the ball from their feet, and cheer toward the goal camera. Reduced motion uses still poses. The characters are built from local Three.js geometry and canvas textures, without downloaded models or asset services.
+
+Options save automatically: camera view, direction controls, motion, and celebration effects. Turning off celebration effects skips goal sequences and victory confetti. Reduced motion honors the device setting and can also be enabled explicitly; it skips goal sequences, disables confetti animation, and reduces piece/dice motion. Options and Credits are available before starting a match.
+
+The menu flow follows the principles in Xbox's guidance on [consistent navigation](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/112), [protecting progress from destructive actions](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/115), and [motion settings](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/117).
 
 ## Play
 
-- Choose **Computer** or **Human** for the Red player in the **⋯** turn menu. In solo mode, you play **Blue** and the computer plays **Red**. Fresh browsers default to solo play; existing two-player saves keep their mode until you change it.
+- Choose **Computer** or **Human** for the Red player in the **⋯** turn menu. In solo mode, you play **Blue** and the computer plays **Red**. The title screen selects the mode for a new match; saved matches keep their mode until you change it.
 - Use the rulebook's illustrated lineup, or choose **Place teams manually** from the **⋯** turn menu. Manual setup alternates teams after a placement roll, keepers first.
 - **Kick off** rolls both dice and rerolls ties. The winner's center-ring pawn kicks the difference; the loser takes the first regular turn.
 - Roll, select a pawn, then click gold squares to run or kick one square at a time. Direction controls appear automatically on phones and touchscreens; toggle them in the **⋯** turn menu on any device. Your choice is saved in this browser. Arrow keys work when a control or dialog does not have focus.
@@ -25,7 +44,7 @@ No build, npm install, account, or internet connection is needed. Three.js 0.180
 - Drag to orbit, scroll to zoom, or choose **2D** in the **⋯** menu for a view from above. Buttons marked 3D/2D change the camera, not the renderer.
 - The die and remaining points share a compact readout. A **+1 free** badge marks a pending free kick step. The action bar shows one short prompt, with explanations when a rule blocks an action; **?** and match notes contain the details.
 - The game fills the browser window, with the scoreboard and turn controls overlaid on the scene. The camera fits the pitch between the controls, including on phones and in landscape.
-- Use the fullscreen button in the top-right corner or press **F** to enter/exit browser fullscreen. **Esc** also exits fullscreen. The top-right **?** opens the rules; **≡** opens match notes and tips; **↻** starts a new match after confirmation.
+- Use the fullscreen button in the top-right corner or press **F** to enter/exit browser fullscreen. **Esc** also exits fullscreen. The top-right **?** opens the rules; **≡** opens match notes and tips; **Ⅱ** opens the pause menu. Restart match in that menu asks for confirmation.
 - The current match is saved in this browser's local storage. **New match** clears it after confirmation. There is no backend or online multiplayer. The computer opponent runs entirely in your browser, with no account, API key, or network service.
 
 ## Computer opponent
@@ -68,26 +87,31 @@ The following interpretations make underspecified tabletop cases explicit:
 
 - `src/game.js`: rendering-independent rules and immutable state transitions.
 - `src/board.js`: Three.js scene, procedural pieces, lighting, camera, animation, and raycasting.
+- `src/goal-camera.js`: temporary perspective goal camera and disposable firework particles; gameplay camera and match state remain independent.
+- `src/players.js`: procedural footballer models, faces, kits, hairstyles, and running/kicking/celebration poses.
 - `src/app.js`: turn controls, dice, history, local persistence, AI turn scheduling, and UI.
 - `src/ai.js` and `src/ai-worker.js`: legal turn search, position evaluation, computer placement, and background planning.
-- `src/style.css`: responsive layout.
+- `src/style.css`: responsive in-game layout.
+- `src/screens.js` and `src/screens.css`: title, pause, options, credits, results, and victory celebrations.
+- `vite.config.js`: Node dev server, local-network access, and aliases for the vendored Three.js modules.
 - `tests/game.test.js`: movement and kicking rules using Node's built-in test runner.
 - `tests/match.test.js`: full 40-roll matches, halftime, score carryover, restarts, roll caps, and final results.
 - `tests/early-turn.test.js`: voluntary early endings, unused points, required kicks/relocation, legal positions, and match boundaries.
 - `tests/ai.test.js`: legal AI plans, scoring passes, relocation, kickoffs, and seeded full matches.
 - `tests/ai-browser.mjs`: solo mode, automatic turns, cancellation, reloads, mode persistence, and match boundaries.
+- `tests/screens-browser.mjs`: launch/continue, mode selection, pause, saved options, results, rematches, reduced motion, keyboard navigation, and responsive menus.
+- `tests/goal-camera-browser.mjs`: real goals, camera restoration, fireworks cleanup, skip/pause, accessibility settings, phone resizing, and final-roll results.
 - `tests/browser.mjs`: browser checks for rendering, pointer input, complete turns, undo/reset, persistence, setup, scoring, and mobile controls.
 
-With Node.js 22 or newer available:
+Run the rules and AI checks:
 
 ```sh
-node --test tests/*.test.js
+npm test
 ```
 
-For optional browser checks, install the development tools, start the local server in another terminal, then run:
+For optional browser checks, leave `npm run dev` running in another terminal, then run:
 
 ```sh
-npm install
 npx playwright install chromium
 npm run test:browser
 ```
@@ -96,4 +120,4 @@ Playwright may require additional operating-system browser libraries on a minima
 
 Verified: 49 rules and AI tests plus Chromium checks for desktop, phone, and landscape layouts, native fullscreen and the F shortcut, unobscured board input, early endings, halftime, goal restarts, roll counters, and full-time wins and draws. No browser errors or external requests.
 
-The renderer follows the official [Three.js installation documentation](https://threejs.org/manual/pages/installation.html) and uses [OrbitControls](https://threejs.org/docs/pages/OrbitControls). All visual assets are procedural; there are no external fonts or asset requests.
+The renderer follows the official [Three.js installation documentation](https://threejs.org/manual/pages/installation.html) and uses [OrbitControls](https://threejs.org/docs/pages/OrbitControls). The pitch, stadium, pieces, and effects are procedural. Barlow Condensed is bundled under `vendor/fonts/barlow-condensed/` with its SIL Open Font License; there are no runtime font CDN or external asset requests.

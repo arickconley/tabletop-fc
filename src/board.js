@@ -1,8 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { legalTargets } from "./game.js";
+import { GoalCamera } from "./goal-camera.js";
+import {
+  makeFootballer,
+  animateFootballer,
+  disposeFootballer,
+} from "./players.js";
 
-const colors = { blue: 0x418dd2, red: 0xdf6654 };
 export class Board {
   constructor(container, onCell) {
     this.container = container;
@@ -11,7 +16,7 @@ export class Board {
     this.targets = [];
     this.pickables = [];
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xe9ede3);
+    this.scene.background = new THREE.Color(0x080f20);
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -29,8 +34,9 @@ export class Board {
     this.controls.maxPolarAngle = Math.PI * 0.44;
     this.controls.minPolarAngle = 0.01;
     this.controls.target.set(0, 0, 0);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x6f8165, 2));
-    const sun = new THREE.DirectionalLight(0xfff9e9, 2.3);
+    this.ambient = new THREE.HemisphereLight(0xe7f3ff, 0x344a64, 1.6);
+    this.scene.add(this.ambient);
+    const sun = new THREE.DirectionalLight(0xfff9e9, 2.6);
     sun.position.set(-4, 12, 5);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -42,8 +48,11 @@ export class Board {
     sun.shadow.bias = -0.0001;
     sun.shadow.radius = 4;
     this.scene.add(sun);
+    this.sun = sun;
     this.makePitch();
+    this.makeStadium();
     this.makeBall();
+    this.goalCamera = new GoalCamera(this);
     this.highlightGroup = new THREE.Group();
     this.scene.add(this.highlightGroup);
     this.trailGroup = new THREE.Group();
@@ -84,6 +93,134 @@ export class Board {
       metalness: 0,
       ...extra,
     });
+  }
+  makeStadium() {
+    this.stadium = new THREE.Group();
+    this.stadium.visible = true;
+    this.scene.add(this.stadium);
+    this.box(14.8, 0.35, 10.2, 0x0b1830, 0, -0.65, 0, this.stadium);
+    const glow = (color) => new THREE.MeshBasicMaterial({ color });
+    for (const side of [-1, 1]) {
+      for (let row = 0; row < 3; row++) {
+        this.box(
+          12.8,
+          0.26,
+          0.38,
+          0x172d46,
+          0,
+          row * 0.26,
+          side * (4.2 + row * 0.38),
+          this.stadium,
+        );
+        for (let seat = 0; seat < 24; seat++)
+          this.box(
+            0.32,
+            0.12,
+            0.25,
+            (seat + row) % 3 ? 0x285675 : 0xa9cfdb,
+            -6 + seat * 0.52,
+            0.2 + row * 0.26,
+            side * (4.2 + row * 0.38),
+            this.stadium,
+          );
+      }
+      const rail = this.box(
+        12.7,
+        0.08,
+        0.08,
+        0xffffff,
+        0,
+        0.15,
+        side * 3.83,
+        this.stadium,
+      );
+      rail.material.dispose();
+      rail.material = glow(side === -1 ? 0x54b8ff : 0xff657b);
+    }
+    for (const x of [-6.3, 6.3])
+      for (const z of [-4.6, 4.6]) {
+        this.box(0.12, 4.6, 0.12, 0x48637a, x, 1.6, z, this.stadium);
+        this.box(1.15, 0.55, 0.25, 0x1b2f44, x, 3.9, z, this.stadium);
+        const flood = new THREE.SpotLight(
+          0xd9edff,
+          45,
+          22,
+          Math.PI / 3,
+          0.65,
+          2,
+        );
+        flood.position.set(x, 3.9, z);
+        flood.target.position.set(x * 0.3, 0, 0);
+        this.stadium.add(flood, flood.target);
+        for (let col = 0; col < 4; col++)
+          for (let row = 0; row < 2; row++) {
+            const lamp = this.box(
+              0.2,
+              0.17,
+              0.27,
+              0xffffff,
+              x - 0.39 + col * 0.26,
+              3.77 + row * 0.25,
+              z,
+              this.stadium,
+            );
+            lamp.material.dispose();
+            lamp.material = glow(0xe2f7ff);
+          }
+      }
+    const blue = new THREE.PointLight(0x49baff, 28, 15, 2);
+    blue.position.set(-5, 3, -4);
+    this.stadium.add(blue);
+    const red = new THREE.PointLight(0xff586b, 24, 15, 2);
+    red.position.set(5, 3, 4);
+    this.stadium.add(red);
+  }
+  present(screen) {
+    this.goalCamera.stop();
+    if (!this.presentation) {
+      this.playCamera = {
+        position: this.camera.position.clone(),
+        target: this.controls.target.clone(),
+        zoom: this.camera.zoom,
+      };
+    }
+    this.presentation = screen;
+    this.stadium.visible = true;
+    this.scene.background.set(0x080f20);
+    this.ambient.intensity = 1.6;
+    this.sun.intensity = 2.6;
+    this.controls.enabled = false;
+    this.camera.zoom = 1;
+    this.camera.position.set(8, 11, 12);
+    this.camera.lookAt(0, 0, 0);
+    this.resize();
+    // Freeze the saved position for the backdrop; menu presentation never moves a piece.
+    for (const mesh of this.pawns.values()) {
+      mesh.position.copy(mesh.userData.target);
+      animateFootballer(mesh, 0, {
+        reduced: true,
+        cinematic: true,
+        ball: this.ballTarget,
+      });
+    }
+    this.ball.position.copy(this.ballTarget);
+    this.ballRing.position.set(
+      this.ball.position.x,
+      0.17,
+      this.ball.position.z,
+    );
+    this.renderer.render(this.scene, this.camera);
+  }
+  leavePresentation() {
+    if (!this.presentation) return;
+    this.presentation = null;
+    this.controls.enabled = true;
+    this.camera.position.copy(this.playCamera.position);
+    this.camera.zoom = this.playCamera.zoom;
+    this.controls.target.copy(this.playCamera.target);
+    this.camera.lookAt(this.controls.target);
+    this.controls.update();
+    this.resize();
   }
   box(w, h, d, color, x, y, z, parent = this.scene) {
     const m = new THREE.Mesh(
@@ -266,47 +403,11 @@ export class Board {
     for (const y of [2, 3]) this.addPick(x < 0 ? -1 : 10, y);
   }
   makePawn(p) {
-    const group = new THREE.Group(),
-      body = this.material(colors[p.team]),
-      rim = this.material(p.team === "blue" ? 0x2863a0 : 0xb74534),
-      white = this.material(0xfff9e5);
-    const part = (geometry, mat, y) => {
-      const m = new THREE.Mesh(geometry, mat);
-      m.position.y = y;
-      m.castShadow = true;
-      m.receiveShadow = true;
-      group.add(m);
-      return m;
-    };
-    part(new THREE.CylinderGeometry(0.29, 0.32, 0.13, 40), rim, 0.08);
-    part(new THREE.CylinderGeometry(0.25, 0.28, 0.09, 40), body, 0.18);
-    part(new THREE.CylinderGeometry(0.145, 0.22, 0.32, 32), body, 0.37);
-    part(new THREE.SphereGeometry(0.183, 32, 20), body, 0.72);
-    part(new THREE.CylinderGeometry(0.19, 0.13, 0.12, 32), body, 0.56);
-    if (p.keeper)
-      part(new THREE.CylinderGeometry(0.19, 0.19, 0.06, 32), white, 0.75);
-    for (let i = 0; i < 4; i++) {
-      const layer = new THREE.Mesh(
-        new THREE.TorusGeometry(0.285 - i * 0.008, 0.003, 4, 40),
-        rim,
-      );
-      layer.rotation.x = Math.PI / 2;
-      layer.position.y = 0.12 + i * 0.018;
-      group.add(layer);
-    }
-    const label = new THREE.Sprite(
-      new THREE.SpriteMaterial({
-        map: this.textTexture(p.keeper ? "K" : p.id.split("-")[1], 0xffffff),
-        depthTest: true,
-      }),
+    const player = makeFootballer(p, (text, color) =>
+      this.textTexture(text, color),
     );
-    label.scale.set(0.32, 0.32, 1);
-    label.position.set(0, 0.98, 0);
-    group.add(label);
-    group.position.set(p.x - 4.5, 0.16, p.y - 2.5);
-    group.userData.target = group.position.clone();
-    this.scene.add(group);
-    return group;
+    this.scene.add(player);
+    return player;
   }
   makeBall() {
     this.ball = new THREE.Group();
@@ -374,11 +475,7 @@ export class Board {
     for (const [id, mesh] of this.pawns) {
       if (!s.pawns.some((p) => p.id === id)) {
         this.scene.remove(mesh);
-        mesh.traverse((c) => {
-          c.geometry?.dispose();
-          c.material?.map?.dispose();
-          c.material?.dispose();
-        });
+        disposeFootballer(mesh);
         this.pawns.delete(id);
       }
     }
@@ -386,10 +483,39 @@ export class Board {
       if (!this.pawns.has(p.id)) this.pawns.set(p.id, this.makePawn(p));
       const mesh = this.pawns.get(p.id);
       mesh.userData.cell = { x: p.x, y: p.y };
+      const dx = p.x - 4.5 - mesh.userData.target.x;
+      const dz = p.y - 2.5 - mesh.userData.target.z;
+      if (dx || dz) mesh.userData.player.heading = Math.atan2(dx, dz);
       mesh.userData.target.set(p.x - 4.5, 0.16, p.y - 2.5);
     }
-    const carrier = s.pawns.some((p) => p.x === s.ball.x && p.y === s.ball.y);
-    this.ballTarget.set(s.ball.x - 4.5, carrier ? 1.35 : 0.38, s.ball.y - 2.5);
+    if (
+      this.lastPlay?.phase === "kick" &&
+      s.trail.length > this.lastPlay.trailLength &&
+      (s.ball.x !== this.lastPlay.ball.x || s.ball.y !== this.lastPlay.ball.y)
+    ) {
+      const kicker = this.pawns.get(this.lastPlay.selected)?.userData.player;
+      if (kicker) {
+        kicker.kick = 0.34;
+        kicker.heading = Math.atan2(
+          s.ball.x - this.lastPlay.ball.x,
+          s.ball.y - this.lastPlay.ball.y,
+        );
+      }
+    }
+    this.lastPlay = {
+      phase: s.phase,
+      selected: s.selected,
+      ball: { ...s.ball },
+      trailLength: s.trail.length,
+    };
+    this.scoringTeam = s.phase === "goal" ? s.team : null;
+    const carrier = s.pawns.find((p) => p.x === s.ball.x && p.y === s.ball.y);
+    this.ballTarget.set(s.ball.x - 4.5, 0.38, s.ball.y - 2.5);
+    if (carrier) {
+      const heading = this.pawns.get(carrier.id).userData.player.heading;
+      this.ballTarget.x += Math.sin(heading) * 0.3;
+      this.ballTarget.z += Math.cos(heading) * 0.3;
+    }
     this.ball.userData.cell = { ...s.ball };
     this.ball.visible = s.phase !== "placement";
     this.ballRing.visible = this.ball.visible;
@@ -455,6 +581,7 @@ export class Board {
     }
   }
   hit(event) {
+    if (this.goalCamera.active || this.presentation) return null;
     // Pointer input can arrive before the next animation frame after a placement.
     this.scene.updateMatrixWorld(true);
     this.camera.updateMatrixWorld(true);
@@ -494,7 +621,26 @@ export class Board {
     const viewport = this.container.getBoundingClientRect();
     const { width, height } = viewport;
     if (!width || !height) return;
-    // Fit the tabletop into the clear space between the HUD and command dock.
+    this.goalCamera.resize(width, height);
+    if (this.presentation) {
+      const portrait = width < 700;
+      const aspect = width / height;
+      const half = portrait ? 9.2 / aspect : Math.max(8.4, 14 / aspect);
+      // On desktop, the stadium sits beside the menu; on phones it sits above it.
+      const home = this.presentation === "home";
+      const shiftX = home && !portrait ? -half * aspect * 0.32 : 0;
+      const shiftY = home && portrait ? -half * 0.25 : -0.2;
+      this.camera.left = -half * aspect + shiftX;
+      this.camera.right = half * aspect + shiftX;
+      this.camera.top = half + shiftY;
+      this.camera.bottom = -half + shiftY;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(width, height);
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+    // Fill the playable area with the pitch. Stands and lights can extend beyond
+    // the frame; the field, goals and players must stay clear of the HUD.
     // The WebGL canvas itself always fills the entire window.
     const header = document
       .getElementById("hud-header")
@@ -503,24 +649,30 @@ export class Board {
     const top = Math.max(0, header.bottom - viewport.top) + 12;
     const bottom = Math.max(0, viewport.bottom - dock.top) + 12;
     const usableHeight = Math.max(80, height - top - bottom);
-    const usableWidth = Math.max(120, width - 36);
+    const usableWidth = Math.max(120, width - 24);
     this.camera.updateMatrixWorld(true);
     const bounds = new THREE.Box3();
-    for (const x of [-5.9, 5.9])
-      for (const y of [-0.55, 1.6])
-        for (const z of [-3.6, 3.6])
-          bounds.expandByPoint(
-            new THREE.Vector3(x, y, z).applyMatrix4(
-              this.camera.matrixWorldInverse,
-            ),
-          );
+    const envelopes = [
+      { x: [-5.55, 5.55], y: [-0.44, 0.18], z: [-3.54, 3.54] }, // Board rim
+      { x: [-5.8, 5.8], y: [0.06, 1.1], z: [-1.12, 1.12] }, // Nets
+      { x: [-4.86, 4.86], y: [0.16, 1.74], z: [-2.86, 2.86] }, // Players and labels
+    ];
+    for (const envelope of envelopes)
+      for (const x of envelope.x)
+        for (const y of envelope.y)
+          for (const z of envelope.z)
+            bounds.expandByPoint(
+              new THREE.Vector3(x, y, z).applyMatrix4(
+                this.camera.matrixWorldInverse,
+              ),
+            );
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
     const half =
       Math.max(
         (size.y * height) / usableHeight,
         (size.x * height) / usableWidth,
-      ) * 0.53;
+      ) * 0.505;
     const aspect = width / height;
     const offset = (half * (top - bottom)) / height;
     this.camera.left = center.x - half * aspect;
@@ -531,6 +683,19 @@ export class Board {
     this.renderer.setSize(width, height);
   }
   setView(view) {
+    this.goalCamera.stop();
+    if (this.presentation) {
+      this.playCamera = {
+        position: new THREE.Vector3(
+          view === "top" ? 0 : 1.7,
+          view === "top" ? 18 : 12,
+          view === "top" ? 0.001 : 11,
+        ),
+        target: new THREE.Vector3(),
+        zoom: 1,
+      };
+      return;
+    }
     this.camera.position.set(
       view === "top" ? 0 : 1.7,
       view === "top" ? 18 : 12,
@@ -544,11 +709,27 @@ export class Board {
     this.resize();
   }
   animate(t) {
+    if (this.paused) {
+      this.lastTime = t;
+      return;
+    }
     const dt = Math.min((t - this.lastTime) / 1000, 0.1);
     this.lastTime = t;
     const blend = this.reducedMotion ? 1 : 1 - Math.exp(-14 * dt);
-    for (const mesh of this.pawns.values())
+    for (const mesh of this.pawns.values()) {
+      const moving = mesh.position.distanceTo(mesh.userData.target) > 0.025;
       mesh.position.lerp(mesh.userData.target, blend);
+      animateFootballer(mesh, dt, {
+        moving,
+        reduced: this.reducedMotion,
+        celebrating:
+          this.goalCamera.active &&
+          this.scoringTeam === mesh.userData.player.team,
+        cinematic: this.goalCamera.active,
+        ball: this.ballTarget,
+        camera: this.goalCamera.activeCamera.position,
+      });
+    }
     const moving = this.ball.position.distanceTo(this.ballTarget);
     this.ball.position.lerp(this.ballTarget, blend);
     if (moving > 0.02) {
@@ -560,8 +741,13 @@ export class Board {
       0.17,
       this.ball.position.z,
     );
-    this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    if (this.goalCamera.active) {
+      // Background tabs and modal dialogs don't consume the celebration.
+      this.goalCamera.frame(
+        document.hidden || document.querySelector("dialog[open]") ? 0 : dt,
+      );
+    } else this.controls.update();
+    this.renderer.render(this.scene, this.goalCamera.activeCamera);
   }
   // Exposes coordinates for browser interaction tests, without bypassing input handling.
   screenPosition(x, y) {

@@ -18,6 +18,19 @@ const page = await browser.newPage({
   viewport: { width: 1440, height: 1000 },
   reducedMotion: "reduce",
 });
+// Repeatable rolls keep the UI route finder deterministic; all die values and
+// full matches are covered separately in the rules/AI tests.
+await page.addInitScript(() => {
+  const original = Crypto.prototype.getRandomValues;
+  let index = 0;
+  Crypto.prototype.getRandomValues = function (values) {
+    if (values instanceof Uint8Array && values.length === 1) {
+      values[0] = [2, 0, 1, 1, 2, 1][index++ % 6];
+      return values;
+    }
+    return original.call(this, values);
+  };
+});
 const errors = [],
   external = [];
 page.on("pageerror", (error) => errors.push(error.message));
@@ -28,6 +41,13 @@ page.on("request", (request) => {
   if (!request.url().startsWith(base)) external.push(request.url());
 });
 const state = () => page.evaluate(() => window.gridkick.getState());
+async function enterMatch() {
+  if (await page.locator("#game-screens").evaluate((el) => el.open)) {
+    if (await page.locator("#continue-match").isVisible())
+      await page.locator("#continue-match").click();
+    else await page.locator("#start-local").click();
+  }
+}
 async function clickCell(x, y) {
   await page.evaluate(
     () =>
@@ -119,6 +139,7 @@ async function loadFixture(s) {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   await turnOption("top-view");
 }
 async function waitPhase(phase) {
@@ -185,6 +206,7 @@ async function playPlan(s) {
 try {
   await page.goto(`${base}/?qa`);
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   await page.locator("#turn-menu-button").click();
   await page.locator("#opponent").selectOption("human");
   assert.equal(await page.locator("#loading").count(), 0);
@@ -252,6 +274,7 @@ try {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.equal(await page.locator("#direction-pad").isVisible(), true);
   await page.locator("#turn-menu-button").click();
   await page.locator("#direction-toggle").uncheck();
@@ -262,7 +285,9 @@ try {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.equal(await page.locator("#direction-pad").isHidden(), true);
+  console.log("Checking kickoff, moves, and turn history");
   const opening = await state(),
     route = plan(opening);
   assert.ok(route?.length);
@@ -275,6 +300,7 @@ try {
   await clickCell(route[0].x, route[0].y);
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.equal(await page.locator("#undo").isEnabled(), true);
   await page.locator("#undo").click();
   assert.deepEqual((await state()).ball, opening.ball);
@@ -299,6 +325,7 @@ try {
     await page.locator("#primary").click();
     await waitPhase("roll");
   }
+  await page.locator("#pause-button").click();
   await page.locator("#new-game").click();
   await page.locator("#confirm-restart").click();
   await waitPhase("ready");
@@ -316,6 +343,7 @@ try {
     );
   }
   await waitPhase("ready");
+  console.log("Checking early endings and match boundaries");
   // Ending early is offered after rolling, while running, and after a legal kick.
   const earlyBase = G.kickoff(G.createGame(), 6, 4);
   Object.assign(earlyBase, {
@@ -359,6 +387,7 @@ try {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.match(
     await page.locator("#primary").getAttribute("title"),
     /5 unused steps/,
@@ -441,6 +470,7 @@ try {
   );
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   await turnOption("top-view");
   await clickCell(9, 3);
   await clickCell(10, 3);
@@ -481,6 +511,7 @@ try {
   assert.equal(await page.locator("#red-rolls").textContent(), "10 / 20");
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.equal((await state()).phase, "halftime");
   await page.screenshot({ path: "test-results/halftime.png" });
   await page.locator("#primary").click();
@@ -497,6 +528,7 @@ try {
   await page.locator("#primary").click();
   await waitPhase("select");
   assert.deepEqual((await state()).rolls, { blue: 11, red: 10 });
+  console.log("Checking full time and mobile controls");
   // The final die roll remains playable before the result is decided.
   boundary = G.kickoff(G.createGame(), 6, 4);
   Object.assign(boundary, {
@@ -531,6 +563,7 @@ try {
   assert.equal(await page.locator("#red-rolls").textContent(), "20 / 20");
   await page.reload();
   await page.waitForFunction(() => !!window.gridkick);
+  await enterMatch();
   assert.equal((await state()).phase, "finished");
   await page.screenshot({ path: "test-results/full-time.png" });
   boundary.phase = "review";
@@ -542,8 +575,7 @@ try {
   await waitPhase("finished");
   assert.equal((await state()).winner, null);
   assert.match(await page.locator("#action-title").textContent(), /draw/i);
-  await page.locator("#primary").click();
-  await page.locator("#confirm-restart").click();
+  await page.locator("#play-again").click();
   await waitPhase("ready");
   await page.setViewportSize({ width: 390, height: 844 });
   await turnOption("perspective");

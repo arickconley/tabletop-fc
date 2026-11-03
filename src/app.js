@@ -1,6 +1,7 @@
 import * as Game from "./game.js";
 import { Board } from "./board.js";
 import { applyAction } from "./ai.js";
+import { createScreens } from "./screens.js";
 
 const $ = (id) => document.getElementById(id);
 let state = Game.createGame(),
@@ -10,6 +11,9 @@ let state = Game.createGame(),
   opponent = "computer",
   aiTask = null,
   aiFailed = false,
+  playing = false,
+  hasMatch = false,
+  screens,
   board;
 const saveKey = "gridkick60-match-v2";
 try {
@@ -17,6 +21,7 @@ try {
   if (saved?.version === 2 && saved.state?.pawns && saved.state?.log) {
     Game.legalTargets(saved.state);
     opponent = saved.opponent === "computer" ? "computer" : "human";
+    hasMatch = true;
     state = saved.state;
     baseline = saved.baseline;
     history = Array.isArray(saved.history) ? saved.history : [];
@@ -31,6 +36,65 @@ try {
   if (saved === "true" || saved === "false")
     controlsPreference = saved === "true";
 } catch {}
+const motionMedia = matchMedia("(prefers-reduced-motion: reduce)");
+const preferences = {
+  camera: "perspective",
+  motion: "system",
+  celebrations: true,
+};
+try {
+  const saved = JSON.parse(localStorage.getItem("gridkick60-options"));
+  if (["top", "perspective"].includes(saved?.camera))
+    preferences.camera = saved.camera;
+  if (["system", "reduced"].includes(saved?.motion))
+    preferences.motion = saved.motion;
+  if (typeof saved?.celebrations === "boolean")
+    preferences.celebrations = saved.celebrations;
+} catch {}
+const reducedMotion = () =>
+  preferences.motion === "reduced" || motionMedia.matches;
+function getOptions() {
+  return {
+    ...preferences,
+    reducedMotion: reducedMotion(),
+    directions:
+      controlsPreference === null
+        ? "auto"
+        : controlsPreference
+          ? "show"
+          : "hide",
+  };
+}
+function changeOptions(patch) {
+  const previousCamera = preferences.camera;
+  for (const key of ["camera", "motion", "celebrations"])
+    if (key in patch) preferences[key] = patch[key];
+  if ("directions" in patch)
+    controlsPreference =
+      patch.directions === "auto" ? null : patch.directions === "show";
+  try {
+    localStorage.setItem("gridkick60-options", JSON.stringify(preferences));
+    if (controlsPreference === null)
+      localStorage.removeItem("gridkick60-direction-controls");
+    else
+      localStorage.setItem(
+        "gridkick60-direction-controls",
+        String(controlsPreference),
+      );
+  } catch {}
+  if (previousCamera !== preferences.camera) board?.setView(preferences.camera);
+  updateMotion();
+  render();
+}
+function updateMotion() {
+  document.documentElement.classList.toggle("reduced-motion", reducedMotion());
+  if (board) {
+    board.reducedMotion = reducedMotion();
+    board.controls.enableDamping = !reducedMotion();
+    if (board.reducedMotion) board.goalCamera.stop();
+  }
+}
+motionMedia.addEventListener("change", updateMotion);
 const showControls = () => controlsPreference ?? controlsMedia.matches;
 function isComputerTurn() {
   return (
@@ -67,10 +131,7 @@ function delay(ms, signal) {
   });
 }
 async function waitForTable(task, ms = 350) {
-  await delay(
-    matchMedia("(prefers-reduced-motion: reduce)").matches ? 60 : ms,
-    task.signal,
-  );
+  await delay(reducedMotion() ? 60 : ms, task.signal);
   while (document.querySelector("dialog[open]") || document.hidden)
     await delay(100, task.signal);
   if (task !== aiTask || !isComputerTurn()) throw Error("Cancelled");
@@ -101,7 +162,7 @@ function computerPlan(snapshot, task) {
   });
 }
 function scheduleComputer() {
-  if (aiTask || aiFailed || !isComputerTurn()) return;
+  if (!playing || aiTask || aiFailed || !isComputerTurn()) return;
   const task = new AbortController();
   aiTask = task;
   runComputer(task);
@@ -200,6 +261,7 @@ function showDie(n) {
 function apply(fn, { remember = true, newBaseline = false } = {}) {
   try {
     const next = fn(state);
+    const scored = next.phase === "goal" && state.phase !== "goal";
     if (remember) history.push(structuredClone(state));
     else history = [];
     state = next;
@@ -207,14 +269,44 @@ function apply(fn, { remember = true, newBaseline = false } = {}) {
     $("feedback").textContent = "";
     render();
     save();
+    if (scored && playing) celebrateGoal();
     return true;
   } catch (error) {
     $("feedback").textContent = shortReason(error.message);
     return false;
   }
 }
+function celebrateGoal() {
+  if (!board || reducedMotion() || !preferences.celebrations) return;
+  closeTurnMenu();
+  const overlay = $("goal-celebration");
+  overlay.dataset.team = state.team;
+  $("goal-team").textContent = `${title(state.team)} scores`;
+  $("goal-score").textContent =
+    `BLUE ${state.score.blue} — ${state.score.red} RED`;
+  const started = board.goalCamera.start(state.team, state.ball, () => {
+    const restoreFocus = document.activeElement === $("skip-goal");
+    overlay.hidden = true;
+    delete document.body.dataset.celebrating;
+    $("primary").disabled = false;
+    if (restoreFocus && playing) $("primary").focus({ preventScroll: true });
+  });
+  if (!started) return;
+  overlay.hidden = false;
+  document.body.dataset.celebrating = "goal";
+  $("primary").disabled = true;
+  $("skip-goal").focus({ preventScroll: true });
+}
+$("skip-goal").onclick = () => board?.goalCamera.stop();
 function clickCell(x, y) {
-  if (rolling || isComputerTurn()) return;
+  if (
+    !playing ||
+    board?.goalCamera.active ||
+    document.querySelector("dialog[open]") ||
+    rolling ||
+    isComputerTurn()
+  )
+    return;
   if (state.phase === "placement") return apply((s) => Game.placePawn(s, x, y));
   if (
     state.phase === "select" ||
@@ -230,6 +322,8 @@ function clickCell(x, y) {
 }
 try {
   board = new Board($("viewport"), clickCell);
+  board.setView(preferences.camera);
+  updateMotion();
   $("loading").remove();
 } catch (error) {
   $("loading").textContent =
@@ -410,7 +504,7 @@ function render() {
   $("instruction").textContent = hint;
   $("instruction").hidden = !hint;
   $("primary").textContent = rolling ? "Rolling…" : action;
-  $("primary").disabled = !enabled || rolling;
+  $("primary").disabled = !enabled || rolling || !!board?.goalCamera.active;
   $("primary").title = normalAction
     ? endErrors[0] ||
       `Discard ${state.remaining} unused step${state.remaining === 1 ? "" : "s"} and end this turn. This roll still counts.`
@@ -443,7 +537,21 @@ function render() {
   $("custom-setup").hidden = phase !== "ready";
   $("custom-setup").disabled = rolling;
   $("new-game").disabled = rolling;
+  $("pause-button").disabled = rolling;
   $("direction-toggle").checked = showControls();
+  $("perspective").classList.toggle(
+    "active",
+    preferences.camera === "perspective",
+  );
+  $("top-view").classList.toggle("active", preferences.camera === "top");
+  $("perspective").setAttribute(
+    "aria-pressed",
+    String(preferences.camera === "perspective"),
+  );
+  $("top-view").setAttribute(
+    "aria-pressed",
+    String(preferences.camera === "top"),
+  );
   const tips = {
     ready:
       "Use the ready-made formation, or choose Place teams manually in the turn options menu.",
@@ -478,6 +586,8 @@ function render() {
   renderDirections(targets);
   renderPawnPicker();
   board?.update(state);
+  screens?.sync();
+  if (playing && phase === "finished") screens?.results();
   scheduleComputer();
 }
 function renderDirections(targets) {
@@ -543,10 +653,7 @@ async function rollAnimation(action, valid = () => true) {
   $("die").classList.add("rolling");
   const interval = setInterval(() => showDie(die()), 70);
   await new Promise((resolve) =>
-    setTimeout(
-      resolve,
-      matchMedia("(prefers-reduced-motion: reduce)").matches ? 80 : 550,
-    ),
+    setTimeout(resolve, reducedMotion() ? 80 : 550),
   );
   clearInterval(interval);
   $("die").classList.remove("rolling");
@@ -555,7 +662,14 @@ async function rollAnimation(action, valid = () => true) {
   else render();
 }
 $("primary").onclick = () => {
-  if (rolling || isComputerTurn()) return;
+  if (
+    !playing ||
+    board?.goalCamera.active ||
+    document.querySelector("dialog[open]") ||
+    rolling ||
+    isComputerTurn()
+  )
+    return;
   if (state.phase === "ready")
     rollAnimation(() =>
       apply((s) => Game.kickoff(s, ...duel()), {
@@ -581,10 +695,16 @@ $("primary").onclick = () => {
     );
   else if (state.phase === "goal")
     apply(Game.continueAfterGoal, { remember: false });
-  else if (state.phase === "finished") $("restart-dialog").showModal();
+  else if (state.phase === "finished") screens.results();
 };
 $("undo").onclick = () => {
-  if (rolling || isComputerTurn()) return;
+  if (
+    !playing ||
+    document.querySelector("dialog[open]") ||
+    rolling ||
+    isComputerTurn()
+  )
+    return;
   if (history.length) {
     state = history.pop();
     $("feedback").textContent = "";
@@ -593,7 +713,13 @@ $("undo").onclick = () => {
   }
 };
 $("reset-turn").onclick = () => {
-  if (rolling || isComputerTurn()) return;
+  if (
+    !playing ||
+    document.querySelector("dialog[open]") ||
+    rolling ||
+    isComputerTurn()
+  )
+    return;
   closeTurnMenu();
   if (baseline) {
     state = structuredClone(baseline);
@@ -612,17 +738,26 @@ $("custom-setup").onclick = () => {
     }),
   );
 };
-$("new-game").onclick = () => $("restart-dialog").showModal();
-$("confirm-restart").onclick = () => {
+$("pause-button").onclick = () => {
+  if (!rolling) screens.pause();
+};
+function startMatch(mode) {
   cancelComputer();
+  board?.goalCamera.stop();
+  opponent = mode;
   state = Game.createGame();
   history = [];
   baseline = null;
-  $("restart-dialog").close();
+  hasMatch = true;
+  playing = true;
+  if (board) {
+    board.leavePresentation();
+    board.paused = false;
+  }
   $("feedback").textContent = "";
   render();
   save();
-};
+}
 $("rules-button").onclick = () => $("rules").showModal();
 $("notes-button").onclick = () => $("notes-dialog").showModal();
 async function toggleFullscreen() {
@@ -677,14 +812,7 @@ for (const [id, view] of [
 ])
   $(id).onclick = () => {
     closeTurnMenu();
-    board?.setView(view);
-    $("perspective").classList.toggle("active", view === "perspective");
-    $("top-view").classList.toggle("active", view === "top");
-    $("perspective").setAttribute(
-      "aria-pressed",
-      String(view === "perspective"),
-    );
-    $("top-view").setAttribute("aria-pressed", String(view === "top"));
+    changeOptions({ camera: view });
   };
 function closeTurnMenu(restoreFocus = false) {
   const focusedInside = $("turn-menu-panel").contains(document.activeElement);
@@ -715,16 +843,8 @@ $("opponent").onchange = (event) => {
   save();
   render();
 };
-$("direction-toggle").onchange = (event) => {
-  controlsPreference = event.target.checked;
-  try {
-    localStorage.setItem(
-      "gridkick60-direction-controls",
-      String(controlsPreference),
-    );
-  } catch {}
-  render();
-};
+$("direction-toggle").onchange = (event) =>
+  changeOptions({ directions: event.target.checked ? "show" : "hide" });
 controlsMedia.addEventListener("change", () => {
   if (controlsPreference === null) render();
 });
@@ -756,10 +876,75 @@ document.addEventListener("keydown", (e) => {
     clickCell(p.x + dx, p.y + dy);
   }
 });
+screens = createScreens({
+  snapshot: () => ({ state, opponent, hasMatch }),
+  pause: () => {
+    playing = false;
+    if (board) board.paused = true;
+    cancelComputer();
+    closeTurnMenu();
+  },
+  resume: () => {
+    playing = true;
+    if (board) {
+      board.leavePresentation();
+      board.paused = false;
+    }
+    render();
+  },
+  start: startMatch,
+  options: getOptions,
+  changeOptions,
+  fullscreen: toggleFullscreen,
+  present: (name) => board?.present(name),
+});
+document.addEventListener("keydown", (event) => {
+  if (
+    event.key === "Escape" &&
+    !event.defaultPrevented &&
+    playing &&
+    !rolling &&
+    !document.querySelector("dialog[open]")
+  ) {
+    event.preventDefault();
+    screens.pause();
+  }
+});
 render();
+screens.home();
 // Opt-in read-only hooks for automated browser checks; absent in ordinary play.
 if (new URLSearchParams(location.search).has("qa"))
   window.gridkick = {
     getState: () => structuredClone(state),
     screenPosition: (x, y) => board.screenPosition(x, y),
+    getPlayers: () =>
+      [...board.pawns].map(([id, mesh]) => ({
+        id,
+        model: mesh.name,
+        position: mesh.position.toArray(),
+        pose: mesh.userData.player.pose,
+        team: mesh.userData.player.team,
+        keeper: mesh.userData.player.keeper,
+        hairstyle: mesh.userData.player.hairstyle,
+        badge: mesh.userData.player.badge.visible,
+      })),
+    getPresentation: () => ({
+      stadium: board.stadium.visible,
+      camera: board.goalCamera.activeCamera.type,
+      position: board.goalCamera.activeCamera.position.toArray(),
+      gameplay: {
+        position: board.camera.position.toArray(),
+        quaternion: board.camera.quaternion.toArray(),
+        zoom: board.camera.zoom,
+        target: board.controls.target.toArray(),
+      },
+      celebration: board.goalCamera.shot
+        ? {
+            team: board.goalCamera.shot.team,
+            elapsed: board.goalCamera.shot.elapsed,
+            bursts: board.goalCamera.bursts.length,
+          }
+        : null,
+      effects: board.goalCamera.effects.children.length,
+    }),
   };

@@ -19,6 +19,11 @@ page.on("pageerror", (e) => errors.push(e.message));
 const state = () => page.evaluate(() => window.gridkick.getState());
 async function loaded() {
   await page.waitForFunction(() => !!window.gridkick);
+  if (await page.locator("#game-screens").evaluate((el) => el.open)) {
+    if (await page.locator("#continue-match").isVisible())
+      await page.locator("#continue-match").click();
+    else await page.locator("#start-ai").click();
+  }
 }
 async function fixture(s, opponent = "computer", baseline = s) {
   await page.evaluate(
@@ -127,6 +132,7 @@ try {
   assert.deepEqual((await state()).rolls, { blue: 0, red: 0 });
   // Dialogs pause visible moves; confirming New match cancels the old task.
   await fixture(G.kickoff(G.createGame(), 1, 6));
+  await page.locator("#pause-button").click();
   await page.locator("#new-game").click();
   const paused = await state();
   await page.waitForTimeout(800);
