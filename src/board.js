@@ -295,7 +295,7 @@ export class Board {
         0.22,
         0xc1d3b6,
       );
-    this.flatText("GRIDKICK  /  60", 0, 3.29, 2.4, 0.19, 0xe3e6ca);
+    this.flatText("TABLETOP FC", 0, 3.29, 2.4, 0.19, 0xe3e6ca);
     this.flatText("BLUE  →", -3.9, 3.28, 1.1, 0.18, 0xa4c7e9);
     this.flatText("←  RED", 3.9, 3.28, 1.1, 0.18, 0xeeb1a1);
     this.box(0.018, 0.03, 7.04, 0x234f37, 0, -0.005, 0);

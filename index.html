@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#102d27" />
     <meta
       name="description"
-      content="GRIDKICK 60 — a local Three.js adaptation of the tactical tabletop football game."
+      content="Tabletop FC — a local Three.js adaptation of the tactical tabletop football game."
     />
-    <title>GRIDKICK 60 · Tactical tabletop football</title>
+    <title>Tabletop FC · Tactical tabletop football</title>
     <link rel="stylesheet" href="src/style.css" />
     <link rel="stylesheet" href="src/screens.css" />
     <script type="importmap">
@@ -21,7 +21,7 @@
     </script>
   </head>
   <body>
-    <main id="game" aria-label="GRIDKICK 60 game">
+    <main id="game" aria-label="Tabletop FC game">
       <div id="viewport" aria-label="Interactive 3D football board">
         <div id="loading">Setting the table…</div>
       </div>
@@ -33,17 +33,17 @@
           <span id="goal-score">BLUE 1 — 0 RED</span>
         </div>
         <span class="goal-camera-label" aria-hidden="true"
-          >GK60 / GOAL CAM</span
+          >TFC / GOAL CAM</span
         >
         <button id="skip-goal" type="button">
           Skip celebration <span aria-hidden="true">›</span>
         </button>
       </section>
       <header id="hud-header" class="hud-header">
-        <div class="brand" aria-label="GRIDKICK 60">
-          <span class="brand-mark">G<span>60</span></span>
+        <div class="brand" aria-label="Tabletop FC">
+          <span class="brand-mark">T<span>FC</span></span>
           <span
-            >GRIDKICK <b>60</b
+            >Tabletop <b>FC</b
             ><small id="play-mode-label">PLAY VS COMPUTER</small></span
           >
         </div>
@@ -210,15 +210,15 @@
     </main>
     <dialog id="game-screens" class="game-screens" aria-labelledby="home-title">
       <div class="broadcast-bar" aria-hidden="true">
-        <span><i></i> MATCHDAY</span><b>GK / 60</b
+        <span><i></i> MATCHDAY</span><b>TABLETOP FC</b
         ><span>TABLETOP FOOTBALL</span>
       </div>
       <div id="confetti" aria-hidden="true"></div>
       <section data-panel="home" class="home-layout screen-panel">
         <div class="home-copy">
           <span class="screen-eyebrow">BIG GAME. SMALL PITCH.</span>
-          <h1 id="home-title" class="game-title">
-            <span>GRID</span><span>KICK<em>60</em></span>
+          <h1 id="home-title" class="game-title" aria-label="Tabletop FC">
+            <span>TABLE</span><span>TOP<em>FC</em></span>
           </h1>
           <p class="home-tagline">ROLL THE DICE. RULE THE PITCH.</p>
           <div class="home-actions">
@@ -323,7 +323,7 @@
           <div>
             <h3>Original tabletop game</h3>
             <p>
-              GRIDKICK 60. Adapted from the supplied rulebook for the 3D-printed
+              Tabletop FC. Adapted from the supplied rulebook for the 3D-printed
               soccer game.
             </p>
           </div>
@@ -570,7 +570,7 @@
       </details>
       <a
         class="button secondary rulebook-link"
-        href="docs/GRIDKICK_60_Rulebook.pdf"
+        href="docs/Tabletop_FC_Rulebook.pdf"
         target="_blank"
         rel="noopener"
         >Read the original PDF ↗</a

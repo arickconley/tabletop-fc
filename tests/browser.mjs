@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
 import * as G from "../src/game.js";
 const { chromium } = createRequire(import.meta.url)("playwright");
-const base = process.env.GRIDKICK_URL || "http://127.0.0.1:8000";
+const base = process.env.TABLETOP_FC_URL || "http://127.0.0.1:8000";
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -40,7 +40,7 @@ page.on("console", (msg) => {
 page.on("request", (request) => {
   if (!request.url().startsWith(base)) external.push(request.url());
 });
-const state = () => page.evaluate(() => window.gridkick.getState());
+const state = () => page.evaluate(() => window.tabletopFC.getState());
 async function enterMatch() {
   if (await page.locator("#game-screens").evaluate((el) => el.open)) {
     if (await page.locator("#continue-match").isVisible())
@@ -56,7 +56,7 @@ async function clickCell(x, y) {
       ),
   );
   const point = await page.evaluate(
-    ([x, y]) => window.gridkick.screenPosition(x, y),
+    ([x, y]) => window.tabletopFC.screenPosition(x, y),
     [x, y],
   );
   await page.mouse.click(point.x, point.y);
@@ -109,7 +109,7 @@ async function assertGameFits() {
         document.documentElement.scrollHeight <= innerHeight,
       controls,
       unobscured: cells.every(([x, y]) => {
-        const p = window.gridkick.screenPosition(x, y);
+        const p = window.tabletopFC.screenPosition(x, y);
         return document.elementFromPoint(p.x, p.y)?.tagName === "CANVAS";
       }),
     };
@@ -132,19 +132,19 @@ async function loadFixture(s) {
   await page.evaluate(
     (s) =>
       localStorage.setItem(
-        "gridkick60-match-v2",
+        "tabletop-fc-match-v2",
         JSON.stringify({ version: 2, state: s, baseline: s, history: [] }),
       ),
     s,
   );
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   await turnOption("top-view");
 }
 async function waitPhase(phase) {
   await page.waitForFunction(
-    (phase) => window.gridkick.getState().phase === phase,
+    (phase) => window.tabletopFC.getState().phase === phase,
     phase,
   );
 }
@@ -205,7 +205,7 @@ async function playPlan(s) {
 }
 try {
   await page.goto(`${base}/?qa`);
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   await page.locator("#turn-menu-button").click();
   await page.locator("#opponent").selectOption("human");
@@ -273,7 +273,7 @@ try {
     false,
   );
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.equal(await page.locator("#direction-pad").isVisible(), true);
   await page.locator("#turn-menu-button").click();
@@ -281,10 +281,10 @@ try {
   assert.equal(await page.locator("#direction-pad").isHidden(), true);
   await page.keyboard.press("Escape");
   await page.evaluate(() =>
-    localStorage.removeItem("gridkick60-direction-controls"),
+    localStorage.removeItem("tabletop-fc-direction-controls"),
   );
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.equal(await page.locator("#direction-pad").isHidden(), true);
   console.log("Checking kickoff, moves, and turn history");
@@ -299,7 +299,7 @@ try {
   await turnOption("top-view");
   await clickCell(route[0].x, route[0].y);
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.equal(await page.locator("#undo").isEnabled(), true);
   await page.locator("#undo").click();
@@ -386,7 +386,7 @@ try {
     false,
   );
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.match(
     await page.locator("#primary").getAttribute("title"),
@@ -463,13 +463,13 @@ try {
   await page.evaluate(
     (s) =>
       localStorage.setItem(
-        "gridkick60-match-v2",
+        "tabletop-fc-match-v2",
         JSON.stringify({ version: 2, state: s, baseline: s, history: [] }),
       ),
     goal,
   );
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   await turnOption("top-view");
   await clickCell(9, 3);
@@ -510,7 +510,7 @@ try {
   assert.deepEqual(halftime.pawns, halftime.formation);
   assert.equal(await page.locator("#red-rolls").textContent(), "10 / 20");
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.equal((await state()).phase, "halftime");
   await page.screenshot({ path: "test-results/halftime.png" });
@@ -562,7 +562,7 @@ try {
   );
   assert.equal(await page.locator("#red-rolls").textContent(), "20 / 20");
   await page.reload();
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   await enterMatch();
   assert.equal((await state()).phase, "finished");
   await page.screenshot({ path: "test-results/full-time.png" });

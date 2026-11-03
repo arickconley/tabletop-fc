@@ -15,7 +15,7 @@ let state = Game.createGame(),
   hasMatch = false,
   screens,
   board;
-const saveKey = "gridkick60-match-v2";
+const saveKey = "tabletop-fc-match-v2";
 try {
   const saved = JSON.parse(localStorage.getItem(saveKey));
   if (saved?.version === 2 && saved.state?.pawns && saved.state?.log) {
@@ -32,7 +32,7 @@ try {
 const controlsMedia = matchMedia("(max-width: 760px), (pointer: coarse)");
 let controlsPreference = null;
 try {
-  const saved = localStorage.getItem("gridkick60-direction-controls");
+  const saved = localStorage.getItem("tabletop-fc-direction-controls");
   if (saved === "true" || saved === "false")
     controlsPreference = saved === "true";
 } catch {}
@@ -43,7 +43,7 @@ const preferences = {
   celebrations: true,
 };
 try {
-  const saved = JSON.parse(localStorage.getItem("gridkick60-options"));
+  const saved = JSON.parse(localStorage.getItem("tabletop-fc-options"));
   if (["top", "perspective"].includes(saved?.camera))
     preferences.camera = saved.camera;
   if (["system", "reduced"].includes(saved?.motion))
@@ -73,12 +73,12 @@ function changeOptions(patch) {
     controlsPreference =
       patch.directions === "auto" ? null : patch.directions === "show";
   try {
-    localStorage.setItem("gridkick60-options", JSON.stringify(preferences));
+    localStorage.setItem("tabletop-fc-options", JSON.stringify(preferences));
     if (controlsPreference === null)
-      localStorage.removeItem("gridkick60-direction-controls");
+      localStorage.removeItem("tabletop-fc-direction-controls");
     else
       localStorage.setItem(
-        "gridkick60-direction-controls",
+        "tabletop-fc-direction-controls",
         String(controlsPreference),
       );
   } catch {}
@@ -914,7 +914,7 @@ render();
 screens.home();
 // Opt-in read-only hooks for automated browser checks; absent in ordinary play.
 if (new URLSearchParams(location.search).has("qa"))
-  window.gridkick = {
+  window.tabletopFC = {
     getState: () => structuredClone(state),
     screenPosition: (x, y) => board.screenPosition(x, y),
     getPlayers: () =>

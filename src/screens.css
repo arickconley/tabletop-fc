@@ -1,5 +1,5 @@
 @font-face {
-  font-family: "GK Display";
+  font-family: "Tabletop FC Display";
   src: url("../vendor/fonts/barlow-condensed/BarlowCondensed-BlackItalic.ttf")
     format("truetype");
   font-weight: 900;
@@ -7,7 +7,7 @@
   font-display: swap;
 }
 @font-face {
-  font-family: "GK Menu";
+  font-family: "Tabletop FC Menu";
   src: url("../vendor/fonts/barlow-condensed/BarlowCondensed-SemiBold.ttf")
     format("truetype");
   font-weight: 600;
@@ -60,7 +60,7 @@ body[data-screen="home"] .game-screens {
   align-items: center;
   gap: 18px;
   font:
-    600 13px "GK Menu",
+    600 13px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 2px;
   color: #8192ad;
@@ -98,7 +98,7 @@ body[data-screen="home"] .game-screens {
 .screen-eyebrow {
   display: block;
   font:
-    600 14px "GK Menu",
+    600 14px "Tabletop FC Menu",
     sans-serif;
   color: #b7cadf;
   letter-spacing: 3px;
@@ -119,7 +119,7 @@ body[data-screen="home"] .game-screens {
 }
 .game-title {
   font:
-    italic 900 clamp(96px, 10vw, 152px) / 0.76 "GK Display",
+    italic 900 clamp(96px, 10vw, 152px) / 0.76 "Tabletop FC Display",
     Impact,
     sans-serif;
   letter-spacing: -2px;
@@ -154,7 +154,7 @@ body[data-screen="home"] .game-screens {
 }
 .home-tagline {
   font:
-    600 15px "GK Menu",
+    600 15px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 2px;
   color: #8b9fb8;
@@ -176,7 +176,7 @@ body[data-screen="home"] .game-screens {
   color: #f1f7ff;
   background: #112039e8;
   font:
-    600 25px/1 "GK Menu",
+    600 25px/1 "Tabletop FC Menu",
     sans-serif;
   text-align: left;
   text-transform: uppercase;
@@ -189,7 +189,7 @@ body[data-screen="home"] .game-screens {
 .screen-button small {
   display: block;
   font:
-    600 11px/1.4 "GK Menu",
+    600 11px/1.4 "Tabletop FC Menu",
     sans-serif;
   color: #90a6c0;
   margin-top: 6px;
@@ -211,7 +211,7 @@ body[data-screen="home"] .game-screens {
   top: 21px;
   left: 18px;
   font:
-    600 13px "GK Menu",
+    600 13px "Tabletop FC Menu",
     sans-serif;
   color: #6985a8;
 }
@@ -269,7 +269,7 @@ body[data-screen="home"] .game-screens {
   background: transparent;
   color: #b4c9e3;
   font:
-    600 20px "GK Menu",
+    600 20px "Tabletop FC Menu",
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 1.5px;
@@ -282,7 +282,7 @@ body[data-screen="home"] .game-screens {
 .screen-footnote {
   color: #7c92ad;
   font:
-    600 11px/1.5 "GK Menu",
+    600 11px/1.5 "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 1.7px;
   margin: 24px 0 0;
@@ -313,7 +313,7 @@ kbd {
   flex-wrap: wrap;
   width: 46%;
   font:
-    italic 900 42px "GK Display",
+    italic 900 42px "Tabletop FC Display",
     sans-serif;
   transform: rotate(-4deg);
 }
@@ -338,7 +338,7 @@ kbd {
   flex-basis: 100%;
   text-align: center;
   font:
-    600 12px "GK Menu",
+    600 12px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 4px;
   color: #8ca6c5;
@@ -352,7 +352,7 @@ kbd {
 }
 .narrow-panel h2 {
   font:
-    italic 900 clamp(40px, 6vw, 68px) / 1 "GK Display",
+    italic 900 clamp(40px, 6vw, 68px) / 1 "Tabletop FC Display",
     sans-serif;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -386,7 +386,7 @@ kbd {
   padding: 18px 0;
   border-bottom: 1px solid #6384a833;
   font:
-    600 22px "GK Menu",
+    600 22px "Tabletop FC Menu",
     sans-serif;
 }
 .settings-list small {
@@ -407,7 +407,7 @@ kbd {
   border-radius: 0;
   padding: 8px 12px;
   font:
-    600 17px "GK Menu",
+    600 17px "Tabletop FC Menu",
     sans-serif;
 }
 .settings-list input {
@@ -426,7 +426,7 @@ kbd {
 }
 .credits-list h3 {
   font:
-    600 22px "GK Menu",
+    600 22px "Tabletop FC Menu",
     sans-serif;
   color: #d8ff3e;
   text-transform: uppercase;
@@ -473,12 +473,12 @@ body[data-screen="results"] .game-screens {
   margin: 20px auto;
   color: #92a9c5;
   font:
-    italic 900 50px "GK Display",
+    italic 900 50px "Tabletop FC Display",
     sans-serif;
 }
 .results-panel h2 {
   font:
-    italic 900 clamp(62px, 9vw, 132px) / 0.95 "GK Display",
+    italic 900 clamp(62px, 9vw, 132px) / 0.95 "Tabletop FC Display",
     sans-serif;
   text-transform: uppercase;
   letter-spacing: -1px;
@@ -514,7 +514,7 @@ body[data-screen="results"] .game-screens {
 .results-score span {
   display: block;
   font:
-    600 15px "GK Menu",
+    600 15px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 1.5px;
 }
@@ -529,7 +529,7 @@ body[data-screen="results"] .game-screens {
 .results-score strong {
   display: block;
   font:
-    600 86px/1 "GK Menu",
+    600 86px/1 "Tabletop FC Menu",
     monospace;
   color: white;
 }
@@ -538,13 +538,13 @@ body[data-screen="results"] .game-screens {
 }
 .results-score .score-divider {
   font:
-    italic 900 26px "GK Display",
+    italic 900 26px "Tabletop FC Display",
     sans-serif;
   color: #b3c3d8;
 }
 .results-panel .results-meta {
   font:
-    600 11px "GK Menu",
+    600 11px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 2px;
   color: #7993b0;
@@ -628,7 +628,7 @@ body[data-screen="results"] .game-screens {
   justify-items: start;
   transform: rotate(-3deg);
   font:
-    600 clamp(18px, 2.3vw, 28px) "GK Menu",
+    600 clamp(18px, 2.3vw, 28px) "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -640,7 +640,7 @@ body[data-screen="results"] .game-screens {
 }
 .goal-broadcast strong {
   font:
-    italic 900 clamp(90px, 13vw, 180px) / 0.95 "GK Display",
+    italic 900 clamp(90px, 13vw, 180px) / 0.95 "Tabletop FC Display",
     sans-serif;
   text-shadow: 5px 6px 0 #080f20;
 }
@@ -657,7 +657,7 @@ body[data-screen="results"] .game-screens {
   top: 7%;
   color: #d8ff3e;
   font:
-    600 15px "GK Menu",
+    600 15px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 3px;
 }
@@ -672,7 +672,7 @@ body[data-screen="results"] .game-screens {
   background: #0b192de8;
   color: #f5f8ff;
   font:
-    600 18px "GK Menu",
+    600 18px "Tabletop FC Menu",
     sans-serif;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -720,7 +720,7 @@ body[data-celebrating] .hud-header {
   align-items: center;
   gap: 25px;
   font:
-    italic 900 clamp(56px, 10vw, 140px) "GK Display",
+    italic 900 clamp(56px, 10vw, 140px) "Tabletop FC Display",
     sans-serif;
 }
 #match-intro strong b:first-child {
@@ -735,7 +735,7 @@ body[data-celebrating] .hud-header {
 #match-intro > span,
 #match-intro small {
   font:
-    600 16px "GK Menu",
+    600 16px "Tabletop FC Menu",
     sans-serif;
   letter-spacing: 6px;
 }
@@ -980,14 +980,14 @@ body[data-celebrating] .hud-header {
   border-color: #54759845;
 }
 .brand {
-  font-family: "GK Menu", sans-serif;
+  font-family: "Tabletop FC Menu", sans-serif;
   font-size: 23px;
 }
 .scoreboard .score {
-  font-family: "GK Menu", sans-serif;
+  font-family: "Tabletop FC Menu", sans-serif;
 }
 .turn-copy h1 {
-  font-family: "GK Menu", sans-serif;
+  font-family: "Tabletop FC Menu", sans-serif;
   font-size: 23px;
   text-transform: uppercase;
   letter-spacing: 0.3px;

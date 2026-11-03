@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
 import * as G from "../src/game.js";
 const { chromium } = createRequire(import.meta.url)("playwright");
-const base = process.env.GRIDKICK_URL || "http://127.0.0.1:8000";
+const base = process.env.TABLETOP_FC_URL || "http://127.0.0.1:8000";
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -16,9 +16,9 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
-const state = () => page.evaluate(() => window.gridkick.getState());
+const state = () => page.evaluate(() => window.tabletopFC.getState());
 async function loaded() {
-  await page.waitForFunction(() => !!window.gridkick);
+  await page.waitForFunction(() => !!window.tabletopFC);
   if (await page.locator("#game-screens").evaluate((el) => el.open)) {
     if (await page.locator("#continue-match").isVisible())
       await page.locator("#continue-match").click();
@@ -29,7 +29,7 @@ async function fixture(s, opponent = "computer", baseline = s) {
   await page.evaluate(
     ({ s, opponent, baseline }) =>
       localStorage.setItem(
-        "gridkick60-match-v2",
+        "tabletop-fc-match-v2",
         JSON.stringify({
           version: 2,
           state: s,
@@ -51,7 +51,7 @@ async function mode(value) {
 async function waitForHuman() {
   await page.waitForFunction(
     () => {
-      const s = window.gridkick.getState();
+      const s = window.tabletopFC.getState();
       return (
         (s.team === "blue" && s.phase === "roll") ||
         ["goal", "finished", "halftime"].includes(s.phase)
@@ -90,9 +90,9 @@ try {
   await fixture(G.createGame(), undefined);
   // fixture's default is computer; explicitly remove the new field to model an old save.
   await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem("gridkick60-match-v2"));
+    const s = JSON.parse(localStorage.getItem("tabletop-fc-match-v2"));
     delete s.opponent;
-    localStorage.setItem("gridkick60-match-v2", JSON.stringify(s));
+    localStorage.setItem("tabletop-fc-match-v2", JSON.stringify(s));
   });
   await page.reload();
   await loaded();
@@ -112,7 +112,7 @@ try {
   // Reload mid-turn resumes the existing roll, never rerolls it.
   await fixture(G.rollDie(normal(), 6));
   await page.waitForFunction(
-    () => window.gridkick.getState().phase !== "select",
+    () => window.tabletopFC.getState().phase !== "select",
   );
   assert.equal((await state()).team, "red");
   await page.reload();
@@ -144,17 +144,17 @@ try {
   // Computer placement alternates with the human's legal placement.
   await fixture(G.startPlacement(G.createGame(), 1, 6));
   await page.waitForFunction(
-    () => window.gridkick.getState().pawns.length === 1,
+    () => window.tabletopFC.getState().pawns.length === 1,
   );
   assert.equal((await state()).team, "blue");
   const target = G.placementOptions(await state())[0];
   const point = await page.evaluate(
-    (p) => window.gridkick.screenPosition(p.x, p.y),
+    (p) => window.tabletopFC.screenPosition(p.x, p.y),
     target,
   );
   await page.mouse.click(point.x, point.y);
   await page.waitForFunction(
-    () => window.gridkick.getState().pawns.length === 3,
+    () => window.tabletopFC.getState().pawns.length === 3,
   );
   assert.equal((await state()).team, "blue");
   // A kickoff already trapped by a human is replanned from its original dice.
@@ -190,7 +190,7 @@ try {
   });
   await fixture(half);
   await page.locator("#primary").click();
-  await page.waitForFunction(() => window.gridkick.getState().half === 2);
+  await page.waitForFunction(() => window.tabletopFC.getState().half === 2);
   await waitForHuman();
   assert.equal((await state()).half, 2);
   assert.deepEqual((await state()).rolls, { blue: 10, red: 10 });

@@ -19,9 +19,9 @@ const page = await browser.newPage({
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const presentation = () =>
-  page.evaluate(() => window.gridkick.getPresentation());
-const state = () => page.evaluate(() => window.gridkick.getState());
-const loaded = () => page.waitForFunction(() => !!window.gridkick);
+  page.evaluate(() => window.tabletopFC.getPresentation());
+const state = () => page.evaluate(() => window.tabletopFC.getState());
+const loaded = () => page.waitForFunction(() => !!window.tabletopFC);
 
 function setup(team, final = false) {
   let s = G.kickoff(G.createGame(), 6, 4);
@@ -48,7 +48,7 @@ async function fixture(s, options = {}) {
   await page.evaluate(
     ({ s, options }) => {
       localStorage.setItem(
-        "gridkick60-match-v2",
+        "tabletop-fc-match-v2",
         JSON.stringify({
           version: 2,
           state: s,
@@ -58,7 +58,7 @@ async function fixture(s, options = {}) {
         }),
       );
       localStorage.setItem(
-        "gridkick60-options",
+        "tabletop-fc-options",
         JSON.stringify({
           camera: "perspective",
           motion: "system",
@@ -76,7 +76,7 @@ async function fixture(s, options = {}) {
 }
 async function cell(x, y) {
   const p = await page.evaluate(
-    ({ x, y }) => window.gridkick.screenPosition(x, y),
+    ({ x, y }) => window.tabletopFC.screenPosition(x, y),
     { x, y },
   );
   await page.mouse.click(p.x, p.y);
@@ -85,15 +85,15 @@ async function score(team) {
   const y = team === "blue" ? 3 : 2;
   await cell(team === "blue" ? 9 : 0, y);
   await page.waitForFunction(
-    (x) => window.gridkick.getState().ball.x === x,
+    (x) => window.tabletopFC.getState().ball.x === x,
     team === "blue" ? 9 : 0,
   );
   await cell(team === "blue" ? 10 : -1, y);
-  await page.waitForFunction(() => window.gridkick.getState().phase === "goal");
+  await page.waitForFunction(() => window.tabletopFC.getState().phase === "goal");
 }
 async function completed() {
   await page.waitForFunction(
-    () => !window.gridkick.getPresentation().celebration,
+    () => !window.tabletopFC.getPresentation().celebration,
   );
   assert.equal((await presentation()).effects, 0);
   assert.equal((await presentation()).camera, "OrthographicCamera");
@@ -103,7 +103,7 @@ async function completed() {
 
 try {
   await mkdir("test-results", { recursive: true });
-  await page.goto(`${process.env.GRIDKICK_URL || "http://127.0.0.1:8000"}/?qa`);
+  await page.goto(`${process.env.TABLETOP_FC_URL || "http://127.0.0.1:8000"}/?qa`);
   await loaded();
   // Models retain team/keeper identity, and actual moves drive their poses.
   const runner = setup("blue");
@@ -117,7 +117,7 @@ try {
     ball: { x: 4, y: 3 },
   });
   await fixture(runner);
-  const players = await page.evaluate(() => window.gridkick.getPlayers());
+  const players = await page.evaluate(() => window.tabletopFC.getPlayers());
   assert.equal(players.length, 10);
   assert.equal(players.filter((p) => p.keeper).length, 2);
   assert.equal(new Set(players.map((p) => p.hairstyle)).size, 5);
@@ -126,18 +126,18 @@ try {
   await cell(3, 1);
   await page.waitForFunction(
     () =>
-      window.gridkick.getPlayers().find((p) => p.id === "blue-1").pose ===
+      window.tabletopFC.getPlayers().find((p) => p.id === "blue-1").pose ===
       "running",
   );
   await page.waitForFunction(() =>
-    window.gridkick.getPlayers().every((p) => p.pose === "idle"),
+    window.tabletopFC.getPlayers().every((p) => p.pose === "idle"),
   );
   assert.equal((await state()).pawns.find((p) => p.id === "blue-1").x, 3);
   await fixture(setup("blue"));
   await cell(9, 3);
   await page.waitForFunction(
     () =>
-      window.gridkick.getPlayers().find((p) => p.id === "blue-4").pose ===
+      window.tabletopFC.getPlayers().find((p) => p.id === "blue-4").pose ===
       "kicking",
   );
   assert.equal((await state()).ball.x, 9);
@@ -158,17 +158,17 @@ try {
   assert.equal(await page.locator("#goal-team").textContent(), "Blue scores");
   const start = (await presentation()).position;
   await page.waitForFunction(
-    () => window.gridkick.getPresentation().celebration?.elapsed > 0.9,
+    () => window.tabletopFC.getPresentation().celebration?.elapsed > 0.9,
   );
   assert.notDeepEqual((await presentation()).position, start);
   assert.ok((await presentation()).effects > 0);
-  const celebrating = await page.evaluate(() => window.gridkick.getPlayers());
+  const celebrating = await page.evaluate(() => window.tabletopFC.getPlayers());
   assert.equal(celebrating.filter((p) => p.pose === "celebrating").length, 5);
   assert.ok(celebrating.every((p) => !p.badge));
   await page.screenshot({ path: "test-results/goal-cinematic.png" });
   await completed();
   await page.waitForFunction(() =>
-    window.gridkick.getPlayers().every((p) => p.badge && p.pose === "idle"),
+    window.tabletopFC.getPlayers().every((p) => p.badge && p.pose === "idle"),
   );
   assert.deepEqual(await state(), scored);
   assert.deepEqual((await presentation()).gameplay, original);
@@ -236,7 +236,7 @@ try {
   await score("red");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForFunction(
-    () => window.gridkick.getPresentation().celebration?.elapsed > 0.9,
+    () => window.tabletopFC.getPresentation().celebration?.elapsed > 0.9,
   );
   const skip = await page.locator("#skip-goal").boundingBox();
   assert.ok(

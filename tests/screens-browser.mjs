@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { mkdir } from "node:fs/promises";
 import * as G from "../src/game.js";
 const { chromium } = createRequire(import.meta.url)("playwright");
-const base = process.env.GRIDKICK_URL || "http://127.0.0.1:8000";
+const base = process.env.TABLETOP_FC_URL || "http://127.0.0.1:8000";
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -19,8 +19,8 @@ const page = await browser.newPage({
 });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
-const state = () => page.evaluate(() => window.gridkick.getState());
-const loaded = () => page.waitForFunction(() => !!window.gridkick);
+const state = () => page.evaluate(() => window.tabletopFC.getState());
+const loaded = () => page.waitForFunction(() => !!window.tabletopFC);
 async function screen(name) {
   assert.equal(await page.locator("body").getAttribute("data-screen"), name);
   assert.equal(
@@ -32,7 +32,7 @@ async function fixture(s, opponent = "human", enter = true) {
   await page.evaluate(
     ({ s, opponent }) =>
       localStorage.setItem(
-        "gridkick60-match-v2",
+        "tabletop-fc-match-v2",
         JSON.stringify({
           version: 2,
           state: s,
@@ -153,7 +153,7 @@ try {
     [
       [0, 0],
       [9, 5],
-    ].map(([x, y]) => window.gridkick.screenPosition(x, y)),
+    ].map(([x, y]) => window.tabletopFC.screenPosition(x, y)),
   );
   // Pause/back navigation and replacement confirmation preserve the current match.
   await page.keyboard.press("Escape");
@@ -177,7 +177,7 @@ try {
     [
       [0, 0],
       [9, 5],
-    ].map(([x, y]) => window.gridkick.screenPosition(x, y)),
+    ].map(([x, y]) => window.tabletopFC.screenPosition(x, y)),
   );
   for (let i = 0; i < 2; i++) {
     assert.ok(Math.abs(playCamera[i].x - resumedCamera[i].x) < 1);
@@ -210,8 +210,8 @@ try {
   await page.locator("#continue-match").click();
   await page.waitForFunction(
     () =>
-      window.gridkick.getState().team === "blue" &&
-      window.gridkick.getState().phase === "roll",
+      window.tabletopFC.getState().team === "blue" &&
+      window.tabletopFC.getState().phase === "roll",
   );
   assert.deepEqual((await state()).rolls, { blue: 0, red: 0 });
   // Wins, losses, draws and local winners each get the correct screen.

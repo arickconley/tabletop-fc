@@ -1,6 +1,6 @@
-# GRIDKICK 60
+# Tabletop FC
 
-A local Three.js adaptation of `GRIDKICK_60_Rulebook.pdf`. Play solo against the computer or share the screen with another player. Each player gets 20 normal rolls, with halftime after 10 each. The higher final score wins; tied scores are a draw.
+A local Three.js adaptation of `Tabletop_FC_Rulebook.pdf`. Play solo against the computer or share the screen with another player. Each player gets 20 normal rolls, with halftime after 10 each. The higher final score wins; tied scores are a draw.
 
 ## Run
 
@@ -68,7 +68,7 @@ The digital match now uses these house rules in place of the PDF’s first-goal-
 - Goals add to the score and finish the current normal turn. Choose **Continue** to restore the starting formation and give the conceding team the ball at its center-ring pawn for its next normal turn. This restart does not grant an extra normal roll. If the goal completes a half or the match, go straight to halftime or full time instead.
 - Finish both players' twentieth rolls before comparing scores. Higher score wins; equal scores end in a draw.
 
-Upgrading from the original first-goal-wins version starts a fresh 20-roll match. Updated saves use `gridkick60-match-v2`; earlier saves are left untouched under their old key. Ending turns early works with existing 20-roll saved matches.
+Matches use `tabletop-fc-match-v2`; options and direction controls use the same `tabletop-fc-` storage prefix. The Tabletop FC rename starts fresh saved matches and preferences. Saves from earlier editions remain untouched under their previous keys. Ending turns early works with existing Tabletop FC 20-roll saved matches.
 
 ## Rulebook mapping
 
@@ -116,7 +116,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Playwright may require additional operating-system browser libraries on a minimal Linux installation. Screenshots are written to the ignored `test-results/` folder. `GRIDKICK_URL` overrides the test server URL. The `?qa` URL enables read-only state and board-coordinate hooks for these checks; ordinary play does not expose them.
+Playwright may require additional operating-system browser libraries on a minimal Linux installation. Screenshots are written to the ignored `test-results/` folder. `TABLETOP_FC_URL` overrides the test server URL. The `?qa` URL enables read-only state and board-coordinate hooks for these checks; ordinary play does not expose them.
 
 Verified: 49 rules and AI tests plus Chromium checks for desktop, phone, and landscape layouts, native fullscreen and the F shortcut, unobscured board input, early endings, halftime, goal restarts, roll counters, and full-time wins and draws. No browser errors or external requests.
 
