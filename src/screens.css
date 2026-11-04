@@ -283,6 +283,7 @@ body[data-screen="home"] .game-screens {
 }
 .home-links button,
 .screen-back {
+  min-height: 44px;
   border: 0;
   padding: 6px 0;
   background: transparent;
@@ -1027,7 +1028,7 @@ body[data-celebrating] .hud-header {
     font-size: 10px;
   }
   .home-actions {
-    margin-top: 65px;
+    margin-top: 16px;
   }
 }
 @media (max-width: 760px) {

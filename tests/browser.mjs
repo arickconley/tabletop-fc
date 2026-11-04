@@ -592,6 +592,9 @@ try {
   await page.locator("#primary").click();
   await waitPhase("kick");
   await assertGameFits();
+  assert.equal(await page.locator("#direction-pad").isHidden(), true);
+  await turnOption("direction-toggle");
+  await page.locator("#action-title").click();
   await page.screenshot({
     path: "test-results/mobile-kick.png",
     fullPage: true,

@@ -30,7 +30,6 @@ try {
 } catch {
   /* Storage is optional; a fresh match still works. */
 }
-const controlsMedia = matchMedia("(max-width: 760px), (pointer: coarse)");
 let controlsPreference = null;
 try {
   const saved = localStorage.getItem("tabletop-fc-direction-controls");
@@ -96,7 +95,7 @@ function updateMotion() {
   }
 }
 motionMedia.addEventListener("change", updateMotion);
-const showControls = () => controlsPreference ?? controlsMedia.matches;
+const showControls = () => controlsPreference ?? false;
 function isComputerTurn() {
   return (
     opponent === "computer" &&
@@ -846,9 +845,6 @@ $("opponent").onchange = (event) => {
 };
 $("direction-toggle").onchange = (event) =>
   changeOptions({ directions: event.target.checked ? "show" : "hide" });
-controlsMedia.addEventListener("change", () => {
-  if (controlsPreference === null) render();
-});
 document.addEventListener("keydown", (e) => {
   if (
     document.querySelector("dialog[open]") ||
