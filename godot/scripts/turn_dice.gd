@@ -4,6 +4,8 @@ extends Control
 signal roll_requested
 
 const Die = preload("res://scripts/die.gd")
+const Kits = preload("res://scripts/team_kits.gd")
+var team_kits = {"blue": Kits.make(0), "red": Kits.make(1)}
 var shade: ColorRect
 var title: Label
 var caption: Label
@@ -60,11 +62,11 @@ func present(state: Dictionary) -> void:
 	if busy:
 		return
 	var kickoff = state.phase in ["ready", "halftime"]
-	title.text = "HALFTIME KICKOFF" if state.phase == "halftime" else ("KICKOFF" if kickoff else "%s’S TURN" % state.team.to_upper())
-	title.modulate = Color("d8ff3e") if kickoff else (Color("6fc9ff") if state.team == "blue" else Color("ff8090"))
+	title.text = "HALFTIME KICKOFF" if state.phase == "halftime" else ("KICKOFF" if kickoff else "%s’S TURN" % team_kits[state.team].name.to_upper())
+	title.modulate = Color("d8ff3e") if kickoff else Kits.accent(team_kits[state.team])
 	caption.text = "Tap the dice · set the kickoff distance" if state.phase == "halftime" else ("Tap the dice · highest roll kicks off" if kickoff else "Tap the die to find your moves")
-	first.tint = Color("6fc9ff") if kickoff or state.team == "blue" else Color("ff8090")
-	second.tint = Color("ff8090")
+	first.tint = Kits.accent(team_kits["blue" if kickoff else state.team])
+	second.tint = Kits.accent(team_kits.red)
 	first.face = 5
 	second.face = 3
 	first.scale = Vector2.ONE
@@ -72,7 +74,7 @@ func present(state: Dictionary) -> void:
 	second.visible = kickoff
 	first.disabled = false
 	second.disabled = false
-	first.tooltip_text = "Roll kickoff dice" if kickoff else "Roll for %s" % state.team
+	first.tooltip_text = "Roll kickoff dice" if kickoff else "Roll for %s" % team_kits[state.team].name
 	second.tooltip_text = "Roll kickoff dice"
 	title.modulate.a = 1
 	caption.modulate.a = 1

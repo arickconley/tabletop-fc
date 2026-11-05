@@ -1,12 +1,18 @@
 extends Node3D
 
+signal entrance_finished
+signal camera_changed
+
 const Rules = preload("res://scripts/rules.gd")
 const Footballer = preload("res://scripts/footballer.gd")
 const Stadium = preload("res://scripts/stadium.gd")
-const BLUE = Color("6fc9ff")
-const RED = Color("ff8090")
+const Kits = preload("res://scripts/team_kits.gd")
+var team_kits = {"blue": Kits.make(0), "red": Kits.make(1)}
+var entering = false
 const GOLD = Color("d8ff3e")
 var camera: Camera3D
+var camera_motion: Tween
+var camera_target: Dictionary = {}
 var pieces = {}
 var ball: MeshInstance3D
 var highlights: Node3D
@@ -37,14 +43,15 @@ func _ready() -> void:
 	sun.rotation_degrees = Vector3(-55, -25, 0)
 	sun.light_energy = 1.8
 	sun.light_color = Color("ffe4bd")
-	sun.directional_shadow_max_distance = 35
+	sun.directional_shadow_max_distance = 100
 	sun.shadow_enabled = true
 	add_child(sun)
 	camera = Camera3D.new()
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.fov = 30
 	camera.keep_aspect = Camera3D.KEEP_HEIGHT
 	camera.near = 0.1
-	camera.far = 100
+	camera.far = 250
 	add_child(camera)
 	camera.make_current()
 	_make_pitch()
@@ -159,7 +166,66 @@ func _make_pitch() -> void:
 			_box(self, Vector3(edge + end * 0.88, i * 0.22, 0), Vector3(0.018, 0.018, 2), Color("73898d"))
 
 func _make_player(p: Dictionary) -> StaticBody3D:
-	return Footballer.build(self, p)
+	return Footballer.build(self, p, team_kits[p.team])
+
+func set_kits(kits: Dictionary) -> void:
+	team_kits = kits.duplicate(true)
+	for motion in player_motion.values():
+		motion.kill()
+	player_motion.clear()
+	for piece in pieces.values():
+		piece.free()
+	pieces.clear()
+
+func _entrance_step(progress: float, piece: Node3D, start: Vector3, gate: Vector3, target: Vector3) -> void:
+	piece.show()
+	var split = start.distance_to(gate) / (start.distance_to(gate) + gate.distance_to(target))
+	var direction: Vector3
+	if progress < split:
+		piece.position = start.lerp(gate, progress / split)
+		direction = gate - start
+	else:
+		piece.position = gate.lerp(target, (progress - split) / (1.0 - split))
+		direction = target - gate
+	piece.get_node("Rig").rotation.y = atan2(direction.x, direction.z)
+	Footballer.animate(piece, idle_time + float(abs(hash(piece.name)) % 100), true)
+
+func enter_pitch(state: Dictionary, lead: String) -> void:
+	entering = true
+	var entrance = create_tween().set_parallel(true)
+	var order = 0
+	for p in state.pawns:
+		var piece: Node3D = pieces[p.id]
+		var start = Vector3(6.8, 0.08, 2.2)
+		var gate = Vector3(4.4, 0.08, 2.2)
+		piece.get_node("Base").hide()
+		for child in piece.get_children():
+			if child is Label3D:
+				child.hide()
+		if p.id == lead:
+			start = piece.position
+			gate = start
+		var target = cell_position(p.x, p.y)
+		piece.position = start
+		piece.visible = p.id == lead
+		var delay = 0.0 if p.id == lead else 0.3 + order * 0.22
+		entrance.tween_method(_entrance_step.bind(piece, start, gate, target), 0.0, 1.0, 2.8).set_delay(delay)
+		order += 1
+	await entrance.finished
+	for p in state.pawns:
+		var piece: Node3D = pieces[p.id]
+		piece.position = cell_position(p.x, p.y)
+		piece.get_node("Rig").position = Vector3.ZERO
+		piece.get_node("Rig").rotation = Vector3(0, PI / 2 if p.team == "blue" else -PI / 2, 0)
+		Footballer.animate(piece, 0)
+	entering = false
+	entrance_finished.emit()
+
+func hide_match() -> void:
+	for piece in pieces.values():
+		piece.hide()
+	ball.hide()
+	highlights.hide()
 
 static func cell_position(x: float, y: float, height: float = 0.08) -> Vector3:
 	return Vector3(x - 4.5, height, y - 2.5)
@@ -174,15 +240,13 @@ func _process(delta: float) -> void:
 	idle_time += delta
 	for ring in eligible_rings:
 		ring.scale = Vector3.ONE * (1.0 + sin(idle_time * 4) * 0.06)
+	if entering:
+		return
 	for id in pieces:
-		var rig: Node3D = pieces[id].get_node("Rig")
 		var motion: Tween = player_motion.get(id)
 		if motion != null and motion.is_running():
 			continue
-		var phase = idle_time * 2.2 + float(abs(hash(id)) % 100)
-		rig.position.y = sin(phase) * 0.009
-		rig.scale.y = 1.0 + sin(phase) * 0.012
-		rig.rotation.z = sin(phase * 0.7) * 0.018
+		Footballer.animate(pieces[id], idle_time + float(abs(hash(id)) % 100))
 
 func _step_player(progress: float, rig: Node3D, offset: Vector3) -> void:
 	rig.position = offset * (1.0 - progress) + Vector3.UP * sin(progress * PI) * 0.12
@@ -286,6 +350,8 @@ func _draw_plan(state: Dictionary, plan: Array) -> void:
 		_mesh(highlights, ring, start + Vector3.UP * 0.025, GOLD)
 
 func update_state(state: Dictionary, preview: Dictionary = {}, plan: Array = []) -> void:
+	ball.show()
+	highlights.show()
 	var shown = state if preview.is_empty() else preview
 	for p in shown.pawns:
 		var target = cell_position(p.x, p.y)
@@ -294,6 +360,7 @@ func update_state(state: Dictionary, preview: Dictionary = {}, plan: Array = [])
 			pieces[p.id].position = target
 		else:
 			_move_player(pieces[p.id], target)
+		pieces[p.id].show()
 	_sync_ball(state)
 	eligible_players.clear()
 	eligible_rings.clear()
@@ -307,7 +374,7 @@ func update_state(state: Dictionary, preview: Dictionary = {}, plan: Array = [])
 				var halo = TorusMesh.new()
 				halo.inner_radius = 0.35
 				halo.outer_radius = 0.4
-				eligible_rings.append(_mesh(highlights, halo, cell_position(p.x, p.y, 0.105), BLUE if p.team == "blue" else RED))
+				eligible_rings.append(_mesh(highlights, halo, cell_position(p.x, p.y, 0.105), Kits.accent(team_kits[p.team])))
 	if not ball_in_flight and (plan.is_empty() or shown.phase in ["kick", "relocate"]):
 		for target in Rules.legal_targets(shown):
 			var at = cell_position(target.x, target.y, 0.06)
@@ -328,29 +395,53 @@ func fit(available: Rect2) -> void:
 	if size.x <= 0 or size.y <= 0:
 		return
 	portrait = size.x < size.y
+	var position = Vector3(13, 18, 0) if portrait else Vector3(1.5, 12, 11)
+	var up = Vector3.UP
 	if top_view:
-		camera.position = Vector3(0, 18, 0.001)
-		camera.look_at(Vector3.ZERO, Vector3.LEFT if portrait else Vector3.FORWARD)
-	else:
-		camera.position = Vector3(13, 18, 0) if portrait else Vector3(1.5, 12, 11)
-		camera.look_at(Vector3.ZERO)
-	stadium.update_view(camera.position, top_view)
+		position = Vector3(0, 18, 0.001)
+		up = Vector3.LEFT if portrait else Vector3.FORWARD
+	var transform = Transform3D(Basis.looking_at(-position, up), position)
 	var bounds = AABB()
 	var first = true
 	for x in [-5.95, 5.95]:
 		for y in [-0.45, 1.8]:
 			for z in [-3.5, 3.5]:
-				var point = camera.global_transform.affine_inverse() * Vector3(x, y, z)
+				var point = transform.affine_inverse() * Vector3(x, y, z)
 				if first:
 					bounds.position = point
 					first = false
 				bounds = bounds.expand(point)
-	camera.size = maxf(bounds.size.y * size.y / maxf(available.size.y, 80), bounds.size.x * size.y / maxf(available.size.x, 120)) * 1.04
+	var zoom = maxf(bounds.size.y * size.y / maxf(available.size.y, 80), bounds.size.x * size.y / maxf(available.size.x, 120)) * 1.04
 	var center = bounds.get_center()
-	camera.h_offset = center.x + camera.size * (size.x * 0.5 - available.get_center().x) / size.y
-	camera.v_offset = center.y + camera.size * (available.get_center().y - size.y * 0.5) / size.y
+	# Dolly back to fit the pitch with the same perspective lens used by the entrance.
+	var distance = zoom / (2.0 * tan(deg_to_rad(camera.fov) * 0.5)) + bounds.size.z * 0.5
+	transform.origin = position.normalized() * distance
+	var target = {"transform": transform, "size": zoom,
+		"h": center.x + zoom * (size.x * 0.5 - available.get_center().x) / size.y,
+		"v": center.y + zoom * (available.get_center().y - size.y * 0.5) / size.y}
+	if target == camera_target:
+		stadium.update_view(camera.position, top_view)
+		return
+	var first_fit = camera_target.is_empty()
+	camera_target = target
+	if camera_motion != null:
+		camera_motion.kill()
+	if first_fit or not camera.is_current():
+		_blend_camera(1.0, target, target)
+		return
+	var start = {"transform": camera.transform, "size": camera.size, "h": camera.h_offset, "v": camera.v_offset}
+	camera_motion = create_tween()
+	camera_motion.tween_method(_blend_camera.bind(start, target), 0.0, 1.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
-func pick(screen_point: Vector2, preferred_targets: Array = []) -> Dictionary:
+func _blend_camera(progress: float, start: Dictionary, finish: Dictionary) -> void:
+	camera.transform = start.transform.interpolate_with(finish.transform, progress)
+	camera.size = lerpf(start.size, finish.size, progress)
+	camera.h_offset = lerpf(start.h, finish.h, progress)
+	camera.v_offset = lerpf(start.v, finish.v, progress)
+	stadium.update_view(camera.position, top_view)
+	camera_changed.emit()
+
+func pick(screen_point: Vector2, preferred_targets: Array = [], path_targets: Array = []) -> Dictionary:
 	var origin = camera.project_ray_origin(screen_point)
 	var direction = camera.project_ray_normal(screen_point)
 	var query = PhysicsRayQueryParameters3D.create(origin, origin + direction * 100)
@@ -362,6 +453,10 @@ func pick(screen_point: Vector2, preferred_targets: Array = []) -> Dictionary:
 		var y = floori(point.z + 3)
 		if x >= -1 and x <= 10 and y >= 0 and y < 6:
 			cell = {"x": x, "y": y}
+	# Route squares stay tappable even when a foreground player overlaps them.
+	for target in path_targets:
+		if not cell.is_empty() and Rules.same(target, cell):
+			return cell
 	if not hit.is_empty() and hit.collider.has_meta("pawn_id"):
 		var pawn = {"pawn_id": hit.collider.get_meta("pawn_id")}
 		# A valid receiver wins; an ineligible foreground player must not block a legal square.
