@@ -54,7 +54,7 @@ func run() -> void:
 	assert(game._preview_state().remaining == 0)
 	game._tap(game.board.camera.unproject_position(game.board.cell_position(5, 4, 0.04)))
 	await settle()
-	assert(game.feedback.visible and game.feedback.text == "Tap the last square to finish, or an earlier square to go back.")
+	assert(game.feedback.visible and game.feedback.text == "Confirm the kick, or use Undo to revise the route.")
 	print("Feedback strip height: ", game.dock.size.y, "; content height: ", game.dock.get_combined_minimum_size().y)
 	assert(check_strip(game), "Feedback must fit its content and remain bottom-aligned")
 	for width in [640, 1280, 1920, 640]:

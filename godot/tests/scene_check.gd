@@ -107,6 +107,14 @@ func run() -> void:
 	await create_timer(0.3).timeout
 	assert(absf(player.get_node("Rig").position.x) < 0.01)
 	var origin = game.state.duplicate(true)
+	assert(game.undo_button.visible and not game.undo_button.disabled)
+	game.undo_button.pressed.emit()
+	assert(game.state.phase == "run" and game.state.remaining == 6, "Undo at ball contact must restore the run and its movement point")
+	assert(Rules.pawn_by_id(game.state, "blue-1").x == 2)
+	await create_timer(0.3).timeout
+	_tap_cell(game, Vector2i(3, 1))
+	assert(game.state == origin)
+	await create_timer(0.3).timeout
 	var origin_position = game.board.ball.position
 	for cell in [Vector2i(4, 1), Vector2i(5, 1), Vector2i(6, 2)]:
 		_tap_cell(game, cell)
@@ -117,13 +125,13 @@ func run() -> void:
 	var confirmation_position = game.primary.position
 	_tap_cell(game, Vector2i(6, 3))
 	assert(game.kick_plan.size() == 3, "A second bend is invalid")
-	_tap_cell(game, Vector2i(5, 1))
+	game.undo_button.pressed.emit()
 	assert(game.kick_plan.size() == 2 and not game._preview_state().curved)
-	assert(not game.primary.visible and game._preview_state().remaining == 4)
+	assert(game.primary.visible and game._preview_state().remaining == 4)
 	await _check_confirmation(game)
 	assert(not game.primary.position.is_equal_approx(confirmation_position), "Confirmation must follow the rewound endpoint")
 	_tap_cell(game, Vector2i(6, 2))
-	assert(not game.primary.visible, "Extending the path dismisses confirmation")
+	assert(game.primary.visible, "A legal route exposes confirmation without a hidden second tap")
 	await _check_confirmation(game)
 	assert(game._preview_state().remaining > 0, "A legal kick may finish early")
 	var expected = Rules.commit_turn(game._preview_state())
@@ -135,12 +143,15 @@ func run() -> void:
 	assert(game.state == origin, "Do not hand over until the ball arrives")
 	_tap_cell(game, Vector2i(5, 1))
 	game._primary()
+	game._undo()
+	assert(game.state == origin, "Undo cannot interrupt an animated kick")
 	_tap_cell(game, Vector2i(7, 3))
 	while game.animating:
 		await process_frame
 	assert(game.state == expected and game.state.team == "red" and game.state.phase == "roll")
 	assert(game.dice.visible and game.history.is_empty() and game.kick_plan.is_empty())
 	_tap_cell(game, Vector2i(5, 1))
+	game._undo()
 	assert(game.state == expected, "Rewinding must not cross into the previous player's turn")
 	# A pass must continue off the receiver before the turn can finish.
 	game._accept(origin, false)
@@ -151,7 +162,7 @@ func run() -> void:
 	assert(not game.primary.visible, "An unfinished pass must leave the board clear")
 	await game._confirm_kick()
 	assert(game.state == origin and not game.animating)
-	_tap_cell(game, Vector2i(4, 2))
+	game._undo()
 	assert(game.kick_plan.size() == 1 and game._preview_state().selected == origin.selected)
 	assert(not "blue-3" in game._preview_state().used, "Rewinding a pass restores who can kick")
 	_tap_cell(game, Vector2i(4, 3))
@@ -159,7 +170,7 @@ func run() -> void:
 	expected = Rules.commit_turn(game._preview_state())
 	await game._confirm_kick()
 	assert(game.state == expected and game.dice.visible)
-	# Goal animation scores once and immediately gives the opponent its dice prompt.
+	# Goal celebration scores once before giving the opponent its dice prompt.
 	var goal = Rules.create_game()
 	goal.phase = "kick"
 	goal.selected = "blue-1"
@@ -212,8 +223,8 @@ func run() -> void:
 	_tap_cell(game, Vector2i(0, 1))
 	assert(game._preview_state().phase == "kick" and not game.primary.disabled)
 	assert(game.state == relocation)
-	_tap_cell(game, Vector2i(0, 2))
-	assert(game._preview_state().phase == "relocate")
+	game._undo()
+	assert(game._preview_state().phase == "relocate", "Undo restores required relocation before removing the kick")
 	await create_timer(0.3).timeout
 	_tap_cell(game, Vector2i(0, 1))
 	await game._confirm_kick()
@@ -232,6 +243,12 @@ func run() -> void:
 		assert(game.dice.visible == (half == 1))
 		if half == 1:
 			assert(game.dice.second.visible)
+		else:
+			assert(game.results.visible and game.result_title.text == "HONOURS EVEN")
+			assert(game.primary.get_parent() == game.result_actions and game.primary.text == "Play again")
+			assert(game.result_home.visible and not game.header.visible and not game.dock.visible)
+			await process_frame
+			await _snapshot("-results")
 	# Running without a kick still has an explicit way to finish.
 	game._accept(Rules.roll_die(start, 6), false)
 	await create_timer(0.3).timeout
@@ -289,11 +306,7 @@ func run() -> void:
 	quit()
 
 func _check_confirmation(game: Node3D) -> void:
-	if not game.primary.visible:
-		var endpoint = game.kick_plan.back().ball
-		var length_before = game.kick_plan.size()
-		_tap_cell(game, Vector2i(endpoint.x, endpoint.y))
-		assert(game.kick_plan.size() == length_before and not game.animating, "Retapping only reveals confirmation")
+	assert(game.primary.visible, "Every legal kick exposes its confirmation immediately")
 	await process_frame
 	await process_frame
 	assert(game.primary.visible and game.primary.get_parent() == game.hud)

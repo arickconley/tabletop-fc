@@ -4035,6 +4035,7 @@ script = ExtResource("2_5cslo")
 
 [node name="Camera" type="Camera3D" parent="Shots/LockerPortrait" unique_id=567265576]
 transform = Transform3D(0.987241, -0.008608088, 0.1589996, 0, 0.9985377, 0.054059885, -0.15923244, -0.05337014, 0.98579746, 10.8, 1.22, 6.1)
+v_offset = -0.95
 fov = 54.2
 near = 0.077
 far = 250.0

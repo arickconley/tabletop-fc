@@ -6,6 +6,9 @@ const DicePrompt = preload("res://scripts/turn_dice.gd")
 const Computer = preload("res://scripts/computer.gd")
 const Kits = preload("res://scripts/team_kits.gd")
 const Lobby = preload("res://scripts/team_lobby.gd")
+const UI = preload("res://scripts/ui_theme.gd")
+const GoalCelebration = preload("res://scripts/goal_celebration.gd")
+var celebration: Node3D
 var journey: Node3D
 var team_kits = {"blue": Kits.make(0), "red": Kits.make(1)}
 var screen = "home"
@@ -15,7 +18,6 @@ const GOLD = Color("d8ff3e")
 var state = Rules.create_game()
 var history: Array = []
 var kick_plan: Array[Dictionary] = []
-var confirm_requested = false
 var animating = false
 var computer_team = "red"
 var pending_computer_team = "red"
@@ -37,10 +39,20 @@ var turn_label: Label
 var prompt: Label
 var feedback: Label
 var primary: Button
+var undo_button: Button
 var turn_actions: HBoxContainer
+var results: Control
+var result_panel: PanelContainer
+var result_title: Label
+var result_score: Label
+var result_actions: VBoxContainer
+var result_home: Button
 var menu: MenuButton
 var restart: ConfirmationDialog
 var help: AcceptDialog
+var help_body: RichTextLabel
+var result_detail: Label
+var modal_shade: ColorRect
 var random = RandomNumberGenerator.new()
 var press_position = Vector2.INF
 var touch_index = -1
@@ -52,6 +64,8 @@ func _ready() -> void:
 	journey = $StadiumJourney
 	journey.setup(board)
 	_make_hud()
+	celebration = GoalCelebration.new(self)
+	add_child(celebration)
 	board.camera_changed.connect(_position_confirmation)
 	if screen == "match":
 		journey.mode = "game"
@@ -62,7 +76,7 @@ func _ready() -> void:
 	_resize()
 	_render()
 
-func _label(text: String, size: int, color: Color = Color("ecf3ff")) -> Label:
+func _label(text: String, size: int, color: Color = UI.TEXT) -> Label:
 	var label = Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", size)
@@ -74,47 +88,18 @@ func _button(text: String, callback: Callable, accent: bool = false) -> Button:
 	button.text = text
 	button.custom_minimum_size = Vector2(44, 44)
 	button.pressed.connect(callback)
-	var style = StyleBoxFlat.new()
-	style.draw_center = false
-	style.border_color = GOLD
-	style.border_width_bottom = 2 if accent else 0
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
-	button.add_theme_stylebox_override("normal", style)
-	var hover = style.duplicate()
-	hover.border_width_bottom = 2
-	hover.border_color = Color.WHITE
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", hover)
-	var disabled = style.duplicate()
-	disabled.border_color = Color("52677e")
-	button.add_theme_stylebox_override("disabled", disabled)
-	var focus = style.duplicate()
-	focus.border_width_bottom = 4
-	button.add_theme_stylebox_override("focus", focus)
-	button.add_theme_color_override("font_color", GOLD if accent else Color("c2d4e9"))
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_color_override("font_pressed_color", GOLD)
-	button.add_theme_color_override("font_disabled_color", Color("718298"))
+	UI.button(button, accent)
 	return button
 
 func _make_hud() -> void:
+	get_viewport().gui_embed_subwindows = true
 	var layer = CanvasLayer.new()
 	add_child(layer)
 	hud = Control.new()
 	hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(hud)
-	var theme = Theme.new()
-	theme.default_font = preload("res://assets/fonts/BarlowCondensed-SemiBold.ttf")
-	theme.default_font_size = 20
-	for type in ["Label", "Button"]:
-		theme.set_color("font_shadow_color", type, Color(0.01, 0.025, 0.05, 0.95))
-		theme.set_constant("shadow_offset_y", type, 1)
-		theme.set_constant("shadow_outline_size", type, 1)
-	hud.theme = theme
+	hud.theme = UI.make()
 	header = MarginContainer.new()
 	header.add_theme_constant_override("margin_left", 6)
 	header.add_theme_constant_override("margin_right", 6)
@@ -130,20 +115,21 @@ func _make_hud() -> void:
 	scoreboard = _label("", 26)
 	scoreboard.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	scores.add_child(scoreboard)
-	match_detail = _label("", 14, Color("96abc2"))
+	match_detail = _label("", 14, UI.MUTED)
 	match_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	scores.add_child(match_detail)
 	menu = MenuButton.new()
-	menu.text = "..."
+	menu.text = "Menu"
+	menu.flat = false
 	menu.tooltip_text = "Match options"
 	menu.custom_minimum_size = Vector2(44, 44)
+	UI.button(menu)
+	menu.get_popup().theme = hud.theme
 	top.add_child(menu)
 	menu.get_popup().add_check_item("Overhead view", 0)
 	menu.get_popup().add_item("How to play", 1)
 	menu.get_popup().add_separator()
-	menu.get_popup().add_item("Restart match", 2)
-	menu.get_popup().add_item("New match · vs computer", 3)
-	menu.get_popup().add_item("New match · 2 players", 4)
+	menu.get_popup().add_item("New match", 2)
 	menu.get_popup().add_item("Main menu", 5)
 	menu.get_popup().id_pressed.connect(_menu_action)
 	dock = MarginContainer.new()
@@ -155,6 +141,7 @@ func _make_hud() -> void:
 	var bottom = VBoxContainer.new()
 	dock.add_child(bottom)
 	var actions = HBoxContainer.new()
+	actions.custom_minimum_size.y = 48
 	actions.add_theme_constant_override("separation", 8)
 	bottom.add_child(actions)
 	die_badge = DicePrompt.Die.new()
@@ -176,42 +163,22 @@ func _make_hud() -> void:
 	prompt.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(prompt)
 	turn_actions = actions
+	undo_button = _button("Undo", _undo)
+	undo_button.tooltip_text = "Undo the last step, including reaching the ball"
+	actions.add_child(undo_button)
 	primary = _button("Kick off", _primary, true)
 	primary.custom_minimum_size.x = 72
 	primary.add_theme_font_size_override("font_size", 18)
-	primary.add_theme_constant_override("outline_size", 0)
-	primary.add_theme_color_override("font_shadow_color", Color.TRANSPARENT)
-	for color_name in ["font_color", "font_hover_color", "font_pressed_color"]:
-		primary.add_theme_color_override(color_name, Color("0b192a"))
-	var fills = {"normal": GOLD, "hover": Color("eaff8a"), "pressed": Color("b5d92c"), "disabled": Color("52677e")}
-	for style_name in fills:
-		var style = primary.get_theme_stylebox(style_name).duplicate()
-		style.draw_center = true
-		style.bg_color = fills[style_name]
-		style.border_color = Color("0b192a")
-		style.set_border_width_all(1)
-		style.set_corner_radius_all(8)
-		style.content_margin_left = 14
-		style.content_margin_right = 14
-		style.content_margin_top = 8
-		style.content_margin_bottom = 8
-		style.shadow_color = Color(0.02, 0.05, 0.08, 0.4)
-		style.shadow_size = 4
-		style.shadow_offset = Vector2(0, 2)
-		primary.add_theme_stylebox_override(style_name, style)
-	var focus = primary.get_theme_stylebox("normal").duplicate()
-	focus.draw_center = false
-	focus.shadow_size = 0
-	focus.border_color = Color.WHITE
-	focus.set_border_width_all(2)
-	focus.set_expand_margin_all(3)
-	primary.add_theme_stylebox_override("focus", focus)
 	actions.add_child(primary)
 	feedback = _label("", 16, Color("efce95"))
 	feedback.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	feedback.hide()
 	bottom.add_child(feedback)
 	restart = ConfirmationDialog.new()
+	restart.theme = hud.theme
+	restart.dialog_autowrap = true
+	UI.button(restart.get_ok_button(), true)
+	UI.button(restart.get_cancel_button())
 	restart.title = "Start a new match?"
 	restart.dialog_text = "This replaces the current local match."
 	restart.confirmed.connect(func():
@@ -222,8 +189,15 @@ func _make_hud() -> void:
 	)
 	hud.add_child(restart)
 	help = AcceptDialog.new()
-	help.title = "How to play"
-	help.dialog_text = "Choose your team colour and shirt in Play Game. Your opponent gets a contrasting kit. Play against the computer or share the screen with a friend.\n\nTap the center dice, choose a highlighted player, then tap squares.\nRun one square at a time. Contact with the ball starts a kick.\nTap squares to plan the kick. Tap the endpoint again to show Confirm kick.\nTap an earlier square to rewind to it; tap the ball to clear the route.\nEach kick has one free step and one 45° bend.\nA pass grants a fresh kick; each player kicks once per turn.\n\nConfirm kick plays the route and ends your turn.\nTap earlier run squares to restore moves before confirmation.\nA pass must leave its receiver before confirming.\nIf you only run, use End turn when ready.\nKickoffs must use their exact distance.\nKeepers may stay in the goal mouth; runners must leave.\n20 rolls each, with halftime after 10. Highest score wins.\n\nUse the menu to switch between 3D and overhead views."
+	help.theme = hud.theme
+	help.ok_button_text = "Got it"
+	UI.button(help.get_ok_button(), true)
+	help.title = "MATCH GUIDE"
+	help_body = RichTextLabel.new()
+	help_body.custom_minimum_size = Vector2(220, 140)
+	help_body.add_theme_font_size_override("normal_font_size", 20)
+	help_body.text = "GETTING STARTED\nChoose Play match, pick your kit, and play against the computer or a friend.\n\nYOUR TURN\nRoll, choose a highlighted player, then tap adjacent squares to run. Reaching the ball starts a kick.\n\nKICKING\nTap highlighted squares to plan a route, then Confirm kick. Normal kicks get one free step and one 45° bend. Passes start a fresh kick; each player can kick once per turn.\n\nUNDO\nUndo removes the last step, even after reaching the ball. Tap earlier route squares to rewind. Changes remain editable until you confirm or end the turn.\n\nWINNING\nPlay two halves of ten rolls each. Most goals wins. Kickoffs use the exact dice difference. Keepers may stay in their goal mouth; runners must leave."
+	help.add_child(help_body)
 	hud.add_child(help)
 	dice = DicePrompt.new()
 	hud.add_child(dice)
@@ -241,6 +215,60 @@ func _make_hud() -> void:
 			_open_home()
 	)
 	lobby.start_requested.connect(_start_match)
+	_make_results()
+	modal_shade = ColorRect.new()
+	modal_shade.color = Color(0.025, 0.047, 0.09, 0.8)
+	modal_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	hud.add_child(modal_shade)
+	modal_shade.hide()
+	for dialog in [help, restart]:
+		dialog.visibility_changed.connect(func(): modal_shade.visible = help.visible or restart.visible)
+
+func _show_help() -> void:
+	UI.button(help.get_ok_button(), true)
+	var viewport_size = get_viewport().get_visible_rect().size
+	var title_height = help.get_theme_constant("title_height", "Window")
+	help.popup_centered(Vector2i(mini(560, int(viewport_size.x) - 32), mini(520, int(viewport_size.y) - title_height - 32)))
+	help.position.y = maxi(help.position.y, title_height + 16)
+
+func _make_results() -> void:
+	results = Control.new()
+	results.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	results.mouse_filter = Control.MOUSE_FILTER_STOP
+	hud.add_child(results)
+	var shade = ColorRect.new()
+	shade.color = Color(0.025, 0.047, 0.09, 0.8)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	results.add_child(shade)
+	result_panel = PanelContainer.new()
+	result_panel.minimum_size_changed.connect(_layout, CONNECT_DEFERRED)
+	results.add_child(result_panel)
+	var content = VBoxContainer.new()
+	content.add_theme_constant_override("separation", 16)
+	result_panel.add_child(content)
+	var eyebrow = _label("TABLETOP FC  /  FULL TIME", 16, UI.ACCENT)
+	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(eyebrow)
+	result_title = _label("", 44)
+	result_title.add_theme_font_override("font", preload("res://assets/fonts/BarlowCondensed-BlackItalic.ttf"))
+	result_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(result_title)
+	result_score = _label("", 28)
+	result_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_score.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(result_score)
+	result_detail = _label("Two halves. Twenty rolls each.", 18, UI.MUTED)
+	result_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(result_detail)
+	result_actions = VBoxContainer.new()
+	result_actions.add_theme_constant_override("separation", 8)
+	content.add_child(result_actions)
+	result_home = _button("Main menu", _open_home)
+	result_actions.add_child(result_home)
+	results.hide()
 
 func _open_home() -> void:
 	if animating:
@@ -396,6 +424,14 @@ func _layout() -> void:
 	board.fit(play_area)
 	journey.resize_view()
 	_position_confirmation()
+	if results.visible:
+		var compact = safe.size.y < 500
+		result_detail.visible = not compact
+		result_title.add_theme_font_size_override("font_size", 32 if compact else 44)
+		result_panel.get_child(0).add_theme_constant_override("separation", 8 if compact else 16)
+		result_panel.size = Vector2(minf(440, safe.size.x - 32), 0)
+		result_panel.size.y = result_panel.get_combined_minimum_size().y
+		result_panel.position = safe.position + (safe.size - result_panel.size) * 0.5
 
 func _position_confirmation() -> void:
 	if primary.get_parent() == hud and primary.visible:
@@ -432,10 +468,9 @@ func _confirm_kick(automatic: bool = false) -> void:
 	_render()
 	await board.play_kick(state, kick_plan)
 	if next.phase == "goal":
+		var origin = state
 		state = next
-		scoreboard.text = _score_text()
-		prompt.text = "Goal!"
-		await get_tree().create_timer(0.65).timeout
+		await celebration.play(origin, kick_plan)
 	animating = false
 	_accept(finished, false)
 
@@ -464,6 +499,7 @@ func _roll_turn(automatic: bool = false) -> void:
 func _render() -> void:
 	var view = _preview_state()
 	if screen != "match":
+		results.hide()
 		board.hide_match()
 		header.hide()
 		dock.hide()
@@ -471,9 +507,12 @@ func _render() -> void:
 		dice.hide()
 		_layout.call_deferred()
 		return
-	var action_parent = hud if not kick_plan.is_empty() else turn_actions
+	var action_parent = result_actions if state.phase == "finished" else (hud if not kick_plan.is_empty() else turn_actions)
 	if primary.get_parent() != action_parent:
 		primary.reparent(action_parent, false)
+		if action_parent == result_actions:
+			result_actions.move_child(primary, 0)
+	results.visible = state.phase == "finished"
 	board.update_state(state, view, kick_plan)
 	lobby.hide()
 	header.show()
@@ -498,17 +537,21 @@ func _render() -> void:
 			dice.present(state)
 	else:
 		dice.hide()
+	dock.visible = not dice.visible
 	if view.phase == "select":
 		primary.visible = board.eligible_players.is_empty()
 	if view.phase == "finished":
 		prompt.text = "Draw!" if view.winner == null else "%s wins!" % team_kits[view.winner].name
 		primary.text = "Play again"
 		primary.disabled = false
+		result_title.text = "HONOURS EVEN" if view.winner == null else "%s WINS" % team_kits[view.winner].name.to_upper()
+		result_score.text = _score_text()
+		header.hide()
+		dock.hide()
+		primary.grab_focus.call_deferred()
 	if not kick_plan.is_empty():
-		primary.visible = confirm_requested
+		primary.show()
 		primary.text = "Confirm kick"
-		if not _is_computer_turn() and view.phase != "relocate":
-			turn_label.text = "%s · TAP LAST SQUARE TO FINISH" % team_kits[view.team].name.to_upper()
 		var finished = _finish_state(view)
 		primary.disabled = finished.has("error")
 		if primary.disabled:
@@ -538,6 +581,8 @@ func _render() -> void:
 			feedback.show()
 	elif state.phase == "ready" and computer_team != "":
 		dice.caption.text = "You’re %s · Computer is %s\nTap the dice · highest roll kicks off" % [team_kits.blue.name, team_kits.red.name]
+	undo_button.visible = (not history.is_empty() or not kick_plan.is_empty() or not relocation_preview.is_empty()) and view.phase != "finished" and not _is_computer_turn()
+	undo_button.disabled = animating or computer_busy
 	menu.disabled = animating or computer_busy
 	_layout.call_deferred()
 	if _is_computer_turn() and not computer_busy and not animating and not computer_failed:
@@ -556,7 +601,6 @@ func _accept(next: Dictionary, remember: bool = true) -> void:
 		history.clear()
 	relocation_preview.clear()
 	kick_plan.clear()
-	confirm_requested = false
 	state = next
 	feedback.hide()
 	_render()
@@ -571,30 +615,40 @@ func _primary() -> void:
 	else:
 		_accept(Rules.commit_turn(state), false)
 
+func _undo() -> void:
+	if screen != "match" or animating or dice.visible or computer_busy or _is_computer_turn() or state.phase == "finished":
+		return
+	if not relocation_preview.is_empty():
+		relocation_preview.clear()
+	elif not kick_plan.is_empty():
+		kick_plan.pop_back()
+	elif not history.is_empty():
+		state = history.pop_back()
+	else:
+		return
+	feedback.hide()
+	_render()
+
 func _revisit_square(hit: Dictionary) -> bool:
 	if not relocation_preview.is_empty():
 		var before = kick_plan.back()
 		if Rules.same(hit, Rules.pawn_by_id(before, before.relocating)):
 			relocation_preview.clear()
-			confirm_requested = false
 			_render()
 			return true
 	if not kick_plan.is_empty():
 		if Rules.same(hit, kick_plan.back().ball):
-			confirm_requested = true
 			_render()
 			return true
 		for i in range(kick_plan.size() - 2, -1, -1):
 			if Rules.same(hit, kick_plan[i].ball):
 				kick_plan.resize(i + 1)
 				relocation_preview.clear()
-				confirm_requested = false
 				_render()
 				return true
 		if Rules.same(hit, state.ball):
 			kick_plan.clear()
 			relocation_preview.clear()
-			confirm_requested = false
 			_render()
 			return true
 	# A legal kick onto the run trail takes priority over undoing the run.
@@ -610,7 +664,6 @@ func _revisit_square(hit: Dictionary) -> bool:
 				history.resize(i)
 				kick_plan.clear()
 				relocation_preview.clear()
-				confirm_requested = false
 				_render()
 				return true
 	return false
@@ -623,10 +676,12 @@ func _menu_action(id: int) -> void:
 			board.top_view = not board.top_view
 			menu.get_popup().set_item_checked(0, board.top_view)
 			_layout()
-		1: help.popup_centered()
+		1: _show_help()
 		2, 3, 4, 5:
 			pending_home = id == 5
 			pending_computer_team = computer_team if id in [2, 5] else ("red" if id == 3 else "")
+			restart.title = "Return to main menu?" if pending_home else "Start a new match?"
+			restart.ok_button_text = "Leave match" if pending_home else "New match"
 			restart.dialog_text = "Leave this match and return to the main menu?" if pending_home else "Leave this match and choose your kit for a new game?"
 			if state.phase == "ready":
 				if pending_home:
@@ -634,7 +689,7 @@ func _menu_action(id: int) -> void:
 				else:
 					await _open_setup(pending_computer_team)
 			else:
-				restart.popup_centered()
+				restart.popup_centered_clamped(Vector2i(440, 180), 0.9)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
@@ -686,18 +741,16 @@ func _tap(position: Vector2) -> void:
 				feedback.show()
 			else:
 				relocation_preview = relocated
-				confirm_requested = false
 				_render()
 			return
 		var next = Rules.kick_step(view, hit.x, hit.y)
 		if next.has("error"):
-			feedback.text = "Tap the last square to finish, or an earlier square to go back." if view.phase != "kick" else next.error
+			feedback.text = "Confirm the kick, or use Undo to revise the route." if view.phase != "kick" else next.error
 			feedback.show()
 			_layout.call_deferred()
 		else:
 			relocation_preview.clear()
 			kick_plan.append(next)
-			confirm_requested = false
 			feedback.hide()
 			_render()
 		return

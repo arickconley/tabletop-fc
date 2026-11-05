@@ -9,6 +9,7 @@ const Stadium = preload("res://scripts/stadium.gd")
 const Kits = preload("res://scripts/team_kits.gd")
 var team_kits = {"blue": Kits.make(0), "red": Kits.make(1)}
 var entering = false
+var celebrating = false
 const GOLD = Color("d8ff3e")
 var camera: Camera3D
 var camera_motion: Tween
@@ -240,7 +241,7 @@ func _process(delta: float) -> void:
 	idle_time += delta
 	for ring in eligible_rings:
 		ring.scale = Vector3.ONE * (1.0 + sin(idle_time * 4) * 0.06)
-	if entering:
+	if entering or celebrating:
 		return
 	for id in pieces:
 		var motion: Tween = player_motion.get(id)
