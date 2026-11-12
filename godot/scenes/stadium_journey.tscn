@@ -4034,7 +4034,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.3, 1.05, 3)
 script = ExtResource("2_5cslo")
 
 [node name="Camera" type="Camera3D" parent="Shots/LockerPortrait" unique_id=567265576]
-transform = Transform3D(0.987241, -0.008608088, 0.1589996, 0, 0.9985377, 0.054059885, -0.15923244, -0.05337014, 0.98579746, 10.8, 1.22, 6.1)
+transform = Transform3D(0.98724097, -0.008608088, 0.1589996, 0, 0.9985377, 0.054059885, -0.15923244, -0.05337014, 0.98579746, 10.8, 1.22, 6.1)
 v_offset = -0.95
 fov = 54.2
 near = 0.077
@@ -4047,7 +4047,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.3, 1.05, 3)
 script = ExtResource("2_5cslo")
 
 [node name="Camera" type="Camera3D" parent="Shots/RoomApproach" unique_id=352114123]
-transform = Transform3D(0.99340886, -0.07068043, 0.090238236, 0, 0.7872543, 0.6166285, -0.11462399, -0.61256427, 0.7820654, 11.2, 5, 8)
+transform = Transform3D(0.9934088, -0.07068043, 0.090238236, 0, 0.7872543, 0.6166285, -0.114623986, -0.61256427, 0.7820654, 11.2, 5, 8)
 fov = 60.0
 far = 250.0
 
@@ -4059,7 +4059,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.2, 0.08, 2.2)
 script = ExtResource("2_5cslo")
 
 [node name="Camera" type="Camera3D" parent="Shots/Shoulder" unique_id=1703896787]
-transform = Transform3D(0.07573125, -0.0075511546, 0.9970996, 0, 0.99997133, 0.0075729014, -0.9971282, -0.00057350536, 0.07572908, 0.9499998, 1.05, 0.29999995)
+transform = Transform3D(0.07573125, -0.0075511546, 0.9970995, 0, 0.99997133, 0.007572901, -0.9971281, -0.00057350536, 0.07572908, 0.9499998, 1.05, 0.29999995)
 fov = 70.0
 far = 250.0
 
