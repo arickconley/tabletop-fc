@@ -7,7 +7,7 @@ void fragment() {
 	if (locker) {
 		opacity = portrait
 			? smoothstep(0.26, 0.55, UV.y) * 0.94
-			: smoothstep(0.37, 0.7, UV.x) * 0.9;
+			: smoothstep(0.32, 0.50, UV.x) * 0.96;
 	} else {
 		opacity = portrait
 			? smoothstep(0.34, 0.7, UV.y) * 0.94

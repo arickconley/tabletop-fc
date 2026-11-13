@@ -67,10 +67,13 @@ func build(board: Node3D) -> void:
 			light.light_energy = 0.45
 			light.spot_range = 13
 			light.spot_angle = 58
+	for group in stands + towers:
+		board.batch_static(group)
 	for x in [-4.94, 4.94]:
 		for z in [-2.94, 2.94]:
 			board._cylinder(self, Vector3(x, 0.32, z), 0.018, 0.58, Color("fff4dc"))
 			board._box(self, Vector3(x + 0.09, 0.55, z), Vector3(0.18, 0.13, 0.018), Color("d8ff3e"))
+	board.batch_static(self)
 
 func _make_crowd(parent: Node3D, side: int) -> void:
 	var seats: Array[Transform3D] = []
@@ -127,8 +130,10 @@ func _batch(parent: Node3D, mesh: Mesh, transforms: Array[Transform3D], colors: 
 
 func update_view(camera_position: Vector3, overhead: bool) -> void:
 	var direction = Vector3(camera_position.x, 0, camera_position.z).normalized()
-	# Hide foreground seating and towers, never shrink the pitch to fit scenery.
-	for stand in stands:
-		stand.visible = overhead or direction.dot(stand.position.normalized()) < 0.5
-	for tower in towers:
-		tower.visible = overhead or direction.dot(tower.position.normalized()) < 0.4
+	for group in stands + towers:
+		var threshold = 0.5 if group in stands else 0.4
+		var fade = 0.0 if overhead else smoothstep(threshold - 0.18, threshold, direction.dot(group.position.normalized()))
+		group.visible = fade < 1.0
+		for geometry in group.get_children():
+			if geometry is GeometryInstance3D:
+				geometry.transparency = fade

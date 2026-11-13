@@ -20,6 +20,11 @@ var scorer: Node3D
 var poses: Dictionary = {}
 var labels: Dictionary = {}
 var path: Array[Vector3] = []
+var path_lengths: Array[float] = []
+var path_bases: Array[Basis] = []
+var entry_h = 0.0
+var entry_v = 0.0
+var entry_fov = 30.0
 var saved_ball: Transform3D
 var entry_camera: Transform3D
 var side = 1.0
@@ -77,6 +82,8 @@ func _layout() -> void:
 
 func play(origin: Dictionary, plan: Array) -> void:
 	assert(not active and not plan.is_empty() and plan.back().phase == "goal")
+	if game.board.reduced_motion:
+		return
 	var previous = origin if plan.size() == 1 else plan[-2]
 	var scorer_id: String = previous.selected
 	scorer = game.board.pieces[scorer_id]
@@ -91,6 +98,16 @@ func play(origin: Dictionary, plan: Array) -> void:
 	flank = 1.0 if path.back().z >= 0 else -1.0
 	team_color = game.team_kits[origin.team].color
 	saved_ball = game.board.ball.transform
+	path_lengths = [0.0]
+	path_bases = [saved_ball.basis]
+	for i in range(path.size() - 1):
+		var direction = path[i + 1] - path[i]
+		path_lengths.append(path_lengths.back() + direction.length())
+		path_bases.append(Basis(Vector3.UP.cross(direction).normalized(), direction.length() / 0.17) * path_bases.back())
+	var current = game.get_viewport().get_camera_3d()
+	entry_h = current.h_offset
+	entry_v = current.v_offset
+	entry_fov = current.fov
 	entry_camera = game.get_viewport().get_camera_3d().global_transform
 	poses.clear()
 	labels.clear()
@@ -124,7 +141,7 @@ func _process(delta: float) -> void:
 	if not active:
 		return
 	elapsed += delta
-	if elapsed >= DURATION:
+	if elapsed >= DURATION or game.board.reduced_motion:
 		finish()
 	else:
 		_frame()
@@ -136,9 +153,12 @@ func _frame() -> void:
 	var at = focus + Vector3(-side * 3.1, 1.35, flank * 3.1)
 	title.text = "GOAL REPLAY" if elapsed >= 0.85 and elapsed < 3.15 else "GOAL!"
 	if elapsed >= 0.85:
-		var index = replay * (path.size() - 1)
-		var segment = mini(int(index), path.size() - 2)
-		game.board._roll_ball(index - segment, path[segment], path[segment + 1], saved_ball.basis)
+		var distance = replay * path_lengths.back()
+		var segment = 0
+		while segment < path.size() - 2 and distance > path_lengths[segment + 1]:
+			segment += 1
+		var progress = (distance - path_lengths[segment]) / maxf(0.001, path_lengths[segment + 1] - path_lengths[segment])
+		game.board._roll_ball(progress, path[segment], path[segment + 1], path_bases[segment])
 		var rig = scorer.get_node("Rig")
 		var direction = path[1] - path[0]
 		rig.rotation.y = atan2(direction.x, direction.z)
@@ -162,12 +182,16 @@ func _frame() -> void:
 	camera.fov = 65 if overlay.size.x < overlay.size.y else 52
 	if elapsed < 0.85:
 		pose = entry_camera.interpolate_with(pose, smoothstep(0.0, 0.85, elapsed))
-		camera.fov = lerpf(game.board.camera.fov, camera.fov, smoothstep(0.0, 0.85, elapsed))
+		camera.fov = lerpf(entry_fov, camera.fov, smoothstep(0.0, 0.85, elapsed))
 	elif elapsed > 5.65:
 		pose = pose.interpolate_with(game.board.camera.global_transform, smoothstep(5.65, DURATION, elapsed))
 		camera.fov = lerpf(camera.fov, game.board.camera.fov, smoothstep(5.65, DURATION, elapsed))
+	var entry_blend = smoothstep(0.0, 0.85, elapsed)
+	var exit_blend = smoothstep(5.65, DURATION, elapsed)
+	camera.h_offset = lerpf(entry_h, 0.0, entry_blend) + game.board.camera.h_offset * exit_blend
+	camera.v_offset = lerpf(entry_v, 0.0, entry_blend) + game.board.camera.v_offset * exit_blend
 	camera.global_transform = pose
-	game.board.stadium.update_view(at, false)
+	game.board.stadium.update_view(camera.global_position, false)
 
 func _burst(at: Vector3, color: Color) -> void:
 	var sparks = CPUParticles3D.new()

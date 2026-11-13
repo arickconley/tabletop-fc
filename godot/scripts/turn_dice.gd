@@ -13,6 +13,7 @@ var kicker: Label
 var caption: Label
 var first: Button
 var second: Button
+var reduced_motion = false
 var busy = false
 var docking = false
 
@@ -103,16 +104,20 @@ func reveal(values: Array, moves: int, result_text: String, badge: Control) -> v
 	second.disabled = true
 	caption.text = "Rolling…"
 	if values.size() > 1:
-		second.roll_to(values[1])
-	await first.roll_to(values[0])
+		second.roll_to(values[1], reduced_motion)
+	await first.roll_to(values[0], reduced_motion)
 	caption.text = result_text
-	await get_tree().create_timer(0.65).timeout
+	await get_tree().create_timer(0.08 if reduced_motion else 0.22, false).timeout
 	if moves == 0:
 		caption.text = "A tie! Tap either die to roll again"
 		first.disabled = false
 		second.disabled = false
 		busy = false
 		first.grab_focus()
+		return
+	if reduced_motion:
+		busy = false
+		hide()
 		return
 	docking = true
 	second.hide()
@@ -123,11 +128,11 @@ func reveal(values: Array, moves: int, result_text: String, badge: Control) -> v
 	flight.tween_property(title, "modulate:a", 0.0, 0.2)
 	flight.tween_property(kicker, "modulate:a", 0.0, 0.2)
 	flight.tween_property(caption, "modulate:a", 0.0, 0.2)
-	flight.tween_property(shade, "modulate:a", 0.0, 0.4)
+	flight.tween_property(shade, "modulate:a", 0.0, 0.22)
 	flight.tween_method(func(progress: float):
 		first.position = start.lerp(badge.global_position, progress)
 		first.scale = Vector2.ONE.lerp(badge.size / first.size, progress)
-	, 0.0, 1.0, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	, 0.0, 1.0, 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	await flight.finished
 	docking = false
 	busy = false

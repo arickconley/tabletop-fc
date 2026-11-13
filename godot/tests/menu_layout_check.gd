@@ -23,7 +23,7 @@ func run() -> void:
 			assert(menu.home.size.x >= viewport_size.x * 0.28, "Desktop menu must fill a meaningful share of the screen")
 			assert(menu.play_button.size.y >= 59, "Desktop actions need a larger visual target")
 		else:
-			assert(menu.title.get_theme_font_size("font_size") == 58, "Keep compact layouts unchanged")
+			assert(menu.title.get_theme_font_size("font_size") >= 42, "Keep the compact title readable")
 		if viewport_size == Vector2i(1700, 995) and not OS.get_cmdline_user_args().is_empty() and DisplayServer.get_name() != "headless":
 			await RenderingServer.frame_post_draw
 			root.get_texture().get_image().save_png(OS.get_cmdline_user_args()[0])

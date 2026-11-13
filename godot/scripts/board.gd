@@ -2,12 +2,19 @@ extends Node3D
 
 signal entrance_finished
 signal camera_changed
+signal kicked
 
 const Rules = preload("res://scripts/rules.gd")
 const Footballer = preload("res://scripts/footballer.gd")
 const Stadium = preload("res://scripts/stadium.gd")
 const Kits = preload("res://scripts/team_kits.gd")
 var team_kits = {"blue": Kits.make(0), "red": Kits.make(1)}
+var reduced_motion = false
+var entrance_motion: Tween
+var keyboard_marker: MeshInstance3D
+var selected_ring: MeshInstance3D
+var selected_id = ""
+var kicking: Dictionary = {}
 var entering = false
 var celebrating = false
 const GOLD = Color("d8ff3e")
@@ -19,9 +26,12 @@ var ball: MeshInstance3D
 var highlights: Node3D
 var top_view = false
 var portrait = false
+var orbit_yaw = 0.0
+var orbit_tilt = 0.0
 var stadium: Node3D
 var materials = {}
 var rounded_meshes = {}
+var primitive_meshes = {}
 var player_motion = {}
 var ball_motion: Tween
 var ball_target = Vector3.INF
@@ -56,9 +66,15 @@ func _ready() -> void:
 	add_child(camera)
 	camera.make_current()
 	_make_pitch()
+	batch_static(self)
 	stadium = Stadium.new()
 	add_child(stadium)
 	stadium.build(self)
+	var cursor_mesh = TorusMesh.new()
+	cursor_mesh.inner_radius = 0.42
+	cursor_mesh.outer_radius = 0.46
+	keyboard_marker = _mesh(self, cursor_mesh, Vector3.ZERO, Color.WHITE)
+	keyboard_marker.hide()
 	highlights = Node3D.new()
 	add_child(highlights)
 	ball = _sphere(self, Vector3(0, 0.22, 0), 0.17, Color("fff4dc"))
@@ -82,12 +98,45 @@ func _mesh(parent: Node3D, mesh: Mesh, at: Vector3, color: Color) -> MeshInstanc
 	instance.material_override = _material(color)
 	parent.add_child(instance)
 	instance.position = at
+	var dimensions = mesh.get_aabb().size
+	if minf(dimensions.x, minf(dimensions.y, dimensions.z)) < 0.04:
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return instance
 
+func batch_static(parent: Node3D) -> void:
+	var groups = {}
+	for child in parent.get_children():
+		if child is MeshInstance3D:
+			var key = str(child.material_override.get_instance_id()) + ":" + str(child.cast_shadow)
+			if not groups.has(key):
+				groups[key] = []
+			groups[key].append(child)
+	for group in groups.values():
+		if group.size() < 2:
+			continue
+		var surface = SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for instance in group:
+			surface.append_from(instance.mesh, 0, instance.transform)
+		var merged = MeshInstance3D.new()
+		merged.mesh = surface.commit()
+		merged.material_override = group[0].material_override
+		merged.cast_shadow = group[0].cast_shadow
+		parent.add_child(merged)
+		for instance in group:
+			instance.free()
+
+func show_keyboard_cell(cell: Vector2i, shown: bool = true) -> void:
+	keyboard_marker.position = cell_position(cell.x, cell.y, 0.12)
+	keyboard_marker.visible = shown
+
 func _box(parent: Node3D, at: Vector3, size: Vector3, color: Color) -> MeshInstance3D:
-	var mesh = BoxMesh.new()
-	mesh.size = size
-	return _mesh(parent, mesh, at, color)
+	var key = "box:" + str(size)
+	if not primitive_meshes.has(key):
+		var mesh = BoxMesh.new()
+		mesh.size = size
+		primitive_meshes[key] = mesh
+	return _mesh(parent, primitive_meshes[key], at, color)
 
 func _rounded_box(parent: Node3D, at: Vector3, size: Vector3, radius: float, color: Color) -> MeshInstance3D:
 	var key = str(size) + ":" + str(radius)
@@ -113,20 +162,26 @@ func _rounded_box(parent: Node3D, at: Vector3, size: Vector3, radius: float, col
 	return _mesh(parent, rounded_meshes[key], at, color)
 
 func _sphere(parent: Node3D, at: Vector3, radius: float, color: Color) -> MeshInstance3D:
-	var mesh = SphereMesh.new()
-	mesh.radius = radius
-	mesh.height = radius * 2
-	mesh.radial_segments = 16
-	mesh.rings = 8
-	return _mesh(parent, mesh, at, color)
+	var key = "sphere:" + str(radius)
+	if not primitive_meshes.has(key):
+		var mesh = SphereMesh.new()
+		mesh.radius = radius
+		mesh.height = radius * 2
+		mesh.radial_segments = 20
+		mesh.rings = 10
+		primitive_meshes[key] = mesh
+	return _mesh(parent, primitive_meshes[key], at, color)
 
 func _cylinder(parent: Node3D, at: Vector3, radius: float, height: float, color: Color) -> MeshInstance3D:
-	var mesh = CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 24
-	return _mesh(parent, mesh, at, color)
+	var key = "cylinder:" + str(radius) + ":" + str(height)
+	if not primitive_meshes.has(key):
+		var mesh = CylinderMesh.new()
+		mesh.top_radius = radius
+		mesh.bottom_radius = radius
+		mesh.height = height
+		mesh.radial_segments = 20
+		primitive_meshes[key] = mesh
+	return _mesh(parent, primitive_meshes[key], at, color)
 
 func _make_pitch() -> void:
 	_box(self, Vector3(0, -0.25, 0), Vector3(11.9, 0.4, 7), Color("15253b"))
@@ -194,6 +249,9 @@ func _entrance_step(progress: float, piece: Node3D, start: Vector3, gate: Vector
 func enter_pitch(state: Dictionary, lead: String) -> void:
 	entering = true
 	var entrance = create_tween().set_parallel(true)
+	entrance_motion = entrance
+	if reduced_motion:
+		entrance.set_speed_scale(1000.0)
 	var order = 0
 	for p in state.pawns:
 		var piece: Node3D = pieces[p.id]
@@ -227,31 +285,43 @@ func hide_match() -> void:
 		piece.hide()
 	ball.hide()
 	highlights.hide()
+	keyboard_marker.hide()
 
 static func cell_position(x: float, y: float, height: float = 0.08) -> Vector3:
 	return Vector3(x - 4.5, height, y - 2.5)
 
 func _ball_position(state: Dictionary) -> Vector3:
 	var at = cell_position(state.ball.x, state.ball.y, 0.24)
-	if not Rules.pawn_at(state, state.ball.x, state.ball.y).is_empty():
-		at.z += 0.32
+	var carrier = Rules.pawn_at(state, state.ball.x, state.ball.y)
+	if not carrier.is_empty():
+		var heading = PI / 2 if carrier.team == "blue" else -PI / 2
+		if pieces.has(carrier.id):
+			heading = pieces[carrier.id].get_node("Rig").rotation.y
+		at += Vector3(sin(heading), 0, cos(heading)) * 0.32
 	return at
 
 func _process(delta: float) -> void:
 	idle_time += delta
 	for ring in eligible_rings:
-		ring.scale = Vector3.ONE * (1.0 + sin(idle_time * 4) * 0.06)
+		ring.scale = Vector3.ONE * (1.0 if reduced_motion else 1.0 + sin(idle_time * 4) * 0.06)
+	if is_instance_valid(selected_ring) and pieces.has(selected_id):
+		var piece = pieces[selected_id]
+		selected_ring.position = piece.position + piece.get_node("Rig").position
+		selected_ring.position.y = 0.1
 	if entering or celebrating:
 		return
 	for id in pieces:
 		var motion: Tween = player_motion.get(id)
-		if motion != null and motion.is_running():
+		if (motion != null and motion.is_running()) or kicking.has(id):
 			continue
-		Footballer.animate(pieces[id], idle_time + float(abs(hash(id)) % 100))
+		Footballer.animate(pieces[id], 0.0 if reduced_motion else idle_time + float(abs(hash(id)) % 100))
 
-func _step_player(progress: float, rig: Node3D, offset: Vector3) -> void:
-	rig.position = offset * (1.0 - progress) + Vector3.UP * sin(progress * PI) * 0.12
-	rig.rotation.z = sin(progress * TAU * 2) * 0.08
+func _step_player(progress: float, piece: Node3D, offset: Vector3, heading: float, target_heading: float) -> void:
+	var rig = piece.get_node("Rig")
+	rig.position = Vector3.ZERO
+	Footballer.animate(piece, idle_time + float(abs(hash(piece.name)) % 100), true)
+	rig.position += offset * (1.0 - smoothstep(0.0, 1.0, progress))
+	rig.rotation.y = lerp_angle(heading, target_heading, smoothstep(0.0, 0.6, progress))
 
 func _move_player(piece: Node3D, target: Vector3) -> void:
 	if piece.position.is_equal_approx(target):
@@ -263,12 +333,18 @@ func _move_player(piece: Node3D, target: Vector3) -> void:
 	if motion != null:
 		motion.kill()
 	var direction = target - piece.position
-	rig.rotation.y = atan2(direction.x, direction.z)
+	var heading = rig.rotation.y
+	var target_heading = atan2(direction.x, direction.z)
 	piece.position = target
+	if reduced_motion:
+		rig.position = Vector3.ZERO
+		rig.rotation.y = target_heading
+		Footballer.animate(piece, 0)
+		return
 	rig.position = start - target
 	motion = create_tween()
 	player_motion[id] = motion
-	motion.tween_method(_step_player.bind(rig, start - target), 0.0, 1.0, 0.24)
+	motion.tween_method(_step_player.bind(piece, start - target, heading, target_heading), 0.0, 1.0, 0.24)
 
 func _roll_ball(progress: float, start: Vector3, target: Vector3, initial_basis: Basis) -> void:
 	var direction = target - start
@@ -283,12 +359,18 @@ func _sync_ball(state: Dictionary) -> void:
 		return
 	if ball_motion != null:
 		ball_motion.kill()
-	if ball_target == Vector3.INF:
+	if ball_target == Vector3.INF or reduced_motion:
 		ball.position = target
 	else:
 		ball_motion = create_tween()
 		ball_motion.tween_method(_roll_ball.bind(ball.position, target, ball.basis), 0.0, 1.0, 0.24)
 	ball_target = target
+
+func _kick_pose(progress: float, piece: Node3D) -> void:
+	var rig = piece.get_node("Rig")
+	var swing = sin(progress * PI)
+	rig.get_node("RightLeg").rotation.x = -swing * 0.95
+	rig.rotation.x = -swing * 0.12
 
 func play_kick(origin: Dictionary, plan: Array) -> void:
 	assert(not plan.is_empty())
@@ -300,15 +382,25 @@ func play_kick(origin: Dictionary, plan: Array) -> void:
 	for step in plan:
 		if previous.selected != last_kicker and pieces.has(previous.selected):
 			last_kicker = previous.selected
-			var rig: Node3D = pieces[last_kicker].get_node("Rig")
-			var direction = cell_position(step.ball.x, step.ball.y) - pieces[last_kicker].position
+			var piece: Node3D = pieces[last_kicker]
+			var rig: Node3D = piece.get_node("Rig")
+			var direction = cell_position(step.ball.x, step.ball.y) - piece.position
 			rig.rotation.y = atan2(direction.x, direction.z)
-			var kick = create_tween()
-			kick.tween_property(rig, "rotation:x", -0.2, 0.08)
-			kick.tween_property(rig, "rotation:x", 0.0, 0.14)
+			kicking[last_kicker] = true
+			if not reduced_motion:
+				var contact = create_tween()
+				contact.tween_property(ball, "position", _ball_position(previous), 0.08)
+				contact.parallel().tween_method(_kick_pose.bind(piece), 0.0, 0.5, 0.08)
+				await contact.finished
+				var follow = create_tween()
+				follow.tween_method(_kick_pose.bind(piece), 0.5, 1.0, 0.14)
+				follow.tween_callback(func(): kicking.erase(piece.get_meta("pawn_id")))
+			else:
+				kicking.erase(last_kicker)
+			kicked.emit()
 		var target = _ball_position(step)
 		ball_motion = create_tween()
-		ball_motion.tween_method(_roll_ball.bind(ball.position, target, ball.basis), 0.0, 1.0, maxf(0.16, ball.position.distance_to(target) * 0.2))
+		ball_motion.tween_method(_roll_ball.bind(ball.position, target, ball.basis), 0.0, 1.0, 0.001 if reduced_motion else maxf(0.12, ball.position.distance_to(target) * 0.16))
 		await ball_motion.finished
 		previous = step
 	ball_target = _ball_position(plan.back())
@@ -363,6 +455,8 @@ func update_state(state: Dictionary, preview: Dictionary = {}, plan: Array = [])
 			_move_player(pieces[p.id], target)
 		pieces[p.id].show()
 	_sync_ball(state)
+	selected_ring = null
+	selected_id = ""
 	eligible_players.clear()
 	eligible_rings.clear()
 	for child in highlights.get_children():
@@ -389,24 +483,43 @@ func update_state(state: Dictionary, preview: Dictionary = {}, plan: Array = [])
 		var ring = TorusMesh.new()
 		ring.inner_radius = 0.36
 		ring.outer_radius = 0.41
-		_mesh(highlights, ring, cell_position(selected.x, selected.y, 0.1), GOLD)
+		selected_ring = _mesh(highlights, ring, cell_position(selected.x, selected.y, 0.1), GOLD)
+		selected_id = selected.id
 
-func fit(available: Rect2) -> void:
+func orbit(delta: Vector2, available: Rect2) -> void:
+	var span = maxf(1.0, minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y))
+	orbit_yaw = wrapf(orbit_yaw - delta.x * PI / span, -PI, PI)
+	if not top_view:
+		var base = _default_camera_position()
+		var elevation = asin(base.normalized().y)
+		orbit_tilt = clampf(elevation + orbit_tilt - delta.y * 2.0 / span, deg_to_rad(35), deg_to_rad(80)) - elevation
+	fit(available, true)
+
+func _default_camera_position() -> Vector3:
+	var size = get_viewport().get_visible_rect().size
+	return Vector3(13, 18, 0) if size.x < size.y else (Vector3(0, 13, 7) if size.y < 500 else Vector3(1.5, 12, 11))
+
+func fit(available: Rect2, immediate: bool = false) -> void:
 	var size = get_viewport().get_visible_rect().size
 	if size.x <= 0 or size.y <= 0:
 		return
 	portrait = size.x < size.y
-	var position = Vector3(13, 18, 0) if portrait else Vector3(1.5, 12, 11)
+	var position = _default_camera_position()
+	var elevation = clampf(asin(position.normalized().y) + orbit_tilt, deg_to_rad(35), deg_to_rad(80))
+	var heading = atan2(position.x, position.z) + orbit_yaw
+	position = Vector3(sin(heading) * cos(elevation), sin(elevation), cos(heading) * cos(elevation)) * position.length()
 	var up = Vector3.UP
 	if top_view:
 		position = Vector3(0, 18, 0.001)
 		up = Vector3.LEFT if portrait else Vector3.FORWARD
+		position = position.rotated(Vector3.UP, orbit_yaw)
+		up = up.rotated(Vector3.UP, orbit_yaw)
 	var transform = Transform3D(Basis.looking_at(-position, up), position)
 	var bounds = AABB()
 	var first = true
-	for x in [-5.95, 5.95]:
-		for y in [-0.45, 1.8]:
-			for z in [-3.5, 3.5]:
+	for x in [-5.8, 5.8]:
+		for y in [0.0, 1.72]:
+			for z in [-3.05, 3.05]:
 				var point = transform.affine_inverse() * Vector3(x, y, z)
 				if first:
 					bounds.position = point
@@ -427,7 +540,7 @@ func fit(available: Rect2) -> void:
 	camera_target = target
 	if camera_motion != null:
 		camera_motion.kill()
-	if first_fit or not camera.is_current():
+	if immediate or first_fit or reduced_motion or not camera.is_current():
 		_blend_camera(1.0, target, target)
 		return
 	var start = {"transform": camera.transform, "size": camera.size, "h": camera.h_offset, "v": camera.v_offset}
@@ -470,3 +583,13 @@ func pick(screen_point: Vector2, preferred_targets: Array = [], path_targets: Ar
 				return cell
 		return pawn
 	return cell
+
+func prepare_players(state: Dictionary) -> void:
+	for p in state.pawns:
+		if not pieces.has(p.id):
+			pieces[p.id] = _make_player(p)
+			pieces[p.id].position = cell_position(p.x, p.y)
+			pieces[p.id].hide()
+			await get_tree().process_frame
+			while get_tree().paused:
+				await get_tree().process_frame

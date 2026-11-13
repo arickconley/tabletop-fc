@@ -1,5 +1,19 @@
 extends Node3D
 
+const Save = preload("res://scripts/match_save.gd")
+const SessionMenu = preload("res://scripts/session_menu.gd")
+const MatchAudio = preload("res://scripts/match_audio.gd")
+var session_menu: Control
+var audio: Node
+var preferences = {"reduced_motion": false, "muted": false}
+var persistence_enabled = not "--script" in OS.get_cmdline_args()
+var save_path = "user://match.save"
+var saved_match: Dictionary = {}
+var pending_save: Dictionary = {}
+var save_error = ""
+var keyboard_cell = Vector2i(4, 3)
+var keyboard_active = false
+var compact_layout = false
 const Rules = preload("res://scripts/rules.gd")
 const Pitch = preload("res://scripts/board.gd")
 const DicePrompt = preload("res://scripts/turn_dice.gd")
@@ -30,6 +44,7 @@ var dice: Control
 var die_badge: Button
 var board: Node3D
 var hud: Control
+var header_shade: ColorRect
 var header: MarginContainer
 var dock: MarginContainer
 var play_area: Rect2
@@ -56,6 +71,9 @@ var modal_shade: ColorRect
 var random = RandomNumberGenerator.new()
 var press_position = Vector2.INF
 var touch_index = -1
+var mouse_pressed = false
+var pointer_last = Vector2.ZERO
+var pointer_dragged = false
 
 func _ready() -> void:
 	random.randomize()
@@ -63,9 +81,22 @@ func _ready() -> void:
 	add_child(board)
 	journey = $StadiumJourney
 	journey.setup(board)
+	audio = MatchAudio.new()
+	add_child(audio)
+	_load_preferences()
 	_make_hud()
 	celebration = GoalCelebration.new(self)
 	add_child(celebration)
+	session_menu = SessionMenu.new(self)
+	hud.add_child(session_menu)
+	board.kicked.connect(func(): audio.play("kick"))
+	_apply_preferences()
+	if persistence_enabled:
+		saved_match = Save.read_match(save_path)
+		if saved_match.has("error"):
+			save_error = saved_match.error
+			saved_match = {}
+		lobby.update_continue(not saved_match.is_empty(), save_error)
 	board.camera_changed.connect(_position_confirmation)
 	if screen == "match":
 		journey.mode = "game"
@@ -88,6 +119,10 @@ func _button(text: String, callback: Callable, accent: bool = false) -> Button:
 	button.text = text
 	button.custom_minimum_size = Vector2(44, 44)
 	button.pressed.connect(callback)
+	button.pressed.connect(func():
+		if audio != null:
+			audio.play("select")
+	)
 	UI.button(button, accent)
 	return button
 
@@ -100,6 +135,10 @@ func _make_hud() -> void:
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(hud)
 	hud.theme = UI.make()
+	header_shade = ColorRect.new()
+	header_shade.color = Color(UI.INK, 0.94)
+	header_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(header_shade)
 	header = MarginContainer.new()
 	header.add_theme_constant_override("margin_left", 6)
 	header.add_theme_constant_override("margin_right", 6)
@@ -127,7 +166,9 @@ func _make_hud() -> void:
 	menu.get_popup().theme = hud.theme
 	top.add_child(menu)
 	menu.get_popup().add_check_item("Overhead view", 0)
+	menu.get_popup().add_item("Reset camera", 7)
 	menu.get_popup().add_item("How to play", 1)
+	menu.get_popup().add_item("Pause / Options", 6)
 	menu.get_popup().add_separator()
 	menu.get_popup().add_item("New match", 2)
 	menu.get_popup().add_item("Main menu", 5)
@@ -196,7 +237,7 @@ func _make_hud() -> void:
 	help_body = RichTextLabel.new()
 	help_body.custom_minimum_size = Vector2(220, 140)
 	help_body.add_theme_font_size_override("normal_font_size", 20)
-	help_body.text = "GETTING STARTED\nChoose Play match, pick your kit, and play against the computer or a friend.\n\nYOUR TURN\nRoll, choose a highlighted player, then tap adjacent squares to run. Reaching the ball starts a kick.\n\nKICKING\nTap highlighted squares to plan a route, then Confirm kick. Normal kicks get one free step and one 45° bend. Passes start a fresh kick; each player can kick once per turn.\n\nUNDO\nUndo removes the last step, even after reaching the ball. Tap earlier route squares to rewind. Changes remain editable until you confirm or end the turn.\n\nWINNING\nPlay two halves of ten rolls each. Most goals wins. Kickoffs use the exact dice difference. Keepers may stay in their goal mouth; runners must leave."
+	help_body.text = "GETTING STARTED\nChoose Play match, pick your kit, and play against the computer or a friend.\n\nYOUR TURN\nRoll, choose a highlighted player, then tap adjacent squares to run. Reaching the ball starts a kick.\n\nCAMERA\nDrag the pitch with one finger to rotate; drag up or down to tilt. Tap without dragging to choose a square. Menu offers Reset camera and Overhead view.\n\nKICKING\nTap highlighted squares to plan a route, then Confirm kick. Normal kicks get one free step and one 45° bend. Passes start a fresh kick; each player can kick once per turn.\n\nUNDO\nUndo removes the last step, even after reaching the ball. Tap earlier route squares to rewind. Changes remain editable until you confirm or end the turn.\n\nWINNING\nPlay two halves of ten rolls each. Most goals wins. Kickoffs use the exact dice difference. Keepers may stay in their goal mouth; runners must leave. Only one runner may finish in your defensive box, and the opponent must have a path to the ball.\n\nKEYBOARD\nArrow keys move the square cursor (relative to the screen). Enter selects a square; C confirms a kick or ends a turn; Z undoes; Escape pauses. Tab selects buttons. Reduced motion and sound are in Options."
 	help.add_child(help_body)
 	hud.add_child(help)
 	dice = DicePrompt.new()
@@ -208,13 +249,22 @@ func _make_hud() -> void:
 	hud.add_child(lobby)
 	lobby.play_requested.connect(func():
 		if screen == "home":
-			_open_setup(computer_team)
+			if not saved_match.is_empty() and saved_match.state.phase != "finished":
+				pending_home = false
+				pending_computer_team = computer_team
+				restart.title = "Replace saved match?"
+				restart.dialog_text = "Your saved match will be replaced when the new match starts."
+				restart.popup_centered_clamped(Vector2i(440, 180), 0.9)
+			else:
+				_open_setup(computer_team)
 	)
 	lobby.back_requested.connect(func():
 		if screen == "setup":
 			_open_home()
 	)
 	lobby.start_requested.connect(_start_match)
+	lobby.continue_requested.connect(_continue_match)
+	lobby.options_requested.connect(func(): session_menu.open())
 	_make_results()
 	modal_shade = ColorRect.new()
 	modal_shade.color = Color(0.025, 0.047, 0.09, 0.8)
@@ -273,14 +323,18 @@ func _make_results() -> void:
 func _open_home() -> void:
 	if animating:
 		return
+	_save_match()
 	screen = "to_home"
 	animating = true
-	_new_match(computer_team)
+	match_generation += 1
+	computer_busy = false
 	lobby.hide()
+	_render()
 	await journey.to_home()
 	screen = "home"
 	animating = false
 	lobby.present("home")
+	lobby.update_continue(not saved_match.is_empty(), save_error)
 	_render()
 
 func _open_setup(opponent: String) -> void:
@@ -302,10 +356,12 @@ func _start_match(color_index: int, design_index: int, opponent: String) -> void
 		return
 	screen = "entrance"
 	animating = true
+	journey.skip_requested = false
 	team_kits = {"blue": Kits.make(color_index, design_index), "red": Kits.opponent(color_index, random)}
 	board.set_kits(team_kits)
 	dice.team_kits = team_kits
 	_new_match(opponent)
+	await board.prepare_players(state)
 	board.update_state(state)
 	board.hide_match()
 	_layout()
@@ -314,6 +370,8 @@ func _start_match(color_index: int, design_index: int, opponent: String) -> void
 	await journey.walk_out(state)
 	animating = false
 	screen = "match"
+	_save_match()
+	audio.play("whistle")
 	header.modulate.a = 0.0
 	dock.modulate.a = 0.0
 	_render()
@@ -342,7 +400,7 @@ func _computer_turn(generation: int) -> void:
 	if not _computer_current(generation):
 		return
 	_render()
-	await get_tree().create_timer(0.45).timeout
+	await get_tree().create_timer(0.25, false).timeout
 	if not _computer_current(generation):
 		return
 	while state.phase in ["roll", "halftime"]:
@@ -355,10 +413,12 @@ func _computer_turn(generation: int) -> void:
 		_render()
 	computer_thinking = true
 	_render()
-	var search = Computer.new(state)
+	var search = Computer.new(state, random.randi())
 	while not search.done:
 		search.advance()
 		await get_tree().process_frame
+		while get_tree().paused:
+			await get_tree().process_frame
 		if not _computer_current(generation):
 			return
 	computer_thinking = false
@@ -387,7 +447,7 @@ func _computer_turn(generation: int) -> void:
 			_render()
 		else:
 			_accept(next, false)
-		await get_tree().create_timer(0.3 if action.kind in ["select", "run", "relocate"] else 0.12).timeout
+		await get_tree().create_timer(0.24 if action.kind in ["select", "run", "relocate"] else 0.1, false).timeout
 		if not _computer_current(generation):
 			return
 		if next.phase == "goal":
@@ -410,19 +470,28 @@ func _layout() -> void:
 		var pixels = DisplayServer.get_display_safe_area()
 		var ratio = size / Vector2(get_window().size)
 		safe = Rect2(Vector2(pixels.position) * ratio, Vector2(pixels.size) * ratio)
+	compact_layout = safe.size.y < 500 and safe.size.x > safe.size.y
+	match_detail.visible = not compact_layout
 	var width = minf(820, safe.size.x - 24)
 	var left = safe.position.x + (safe.size.x - width) * 0.5
 	header.size = Vector2(width, header.get_combined_minimum_size().y)
-	header.position = Vector2(left, safe.position.y + 12)
+	header.position = Vector2(left, safe.position.y + (4 if compact_layout else 12))
+	header_shade.visible = compact_layout and screen == "match" and (celebration == null or not celebration.active) and state.phase != "finished"
+	header_shade.size = Vector2(size.x, header.position.y + header.size.y + 2)
 	dock.size = Vector2(width, 0)
 	dock.size.y = dock.get_combined_minimum_size().y
-	dock.position = Vector2(left, safe.end.y - dock.size.y - 12)
-	var top = header.position.y + header.size.y + 12
+	dock.position = Vector2(left, safe.end.y - dock.size.y - (4 if compact_layout else 12))
+	var top = header.position.y + header.size.y + (2 if compact_layout else 12)
 	# Feedback may wrap or disappear without changing the pitch framing.
-	var bottom = safe.end.y - 12 - turn_actions.get_combined_minimum_size().y - 48
-	play_area = Rect2(safe.position.x + 12, top, safe.size.x - 24, bottom - top - 12)
+	var bottom = safe.end.y - (6 if compact_layout else 12) - turn_actions.get_combined_minimum_size().y - (24 if compact_layout else 48)
+	play_area = Rect2(safe.position.x + 12, top, safe.size.x - 24, bottom - top - (2 if compact_layout else 12))
 	board.fit(play_area)
 	journey.resize_view()
+	if screen == "match" and state.phase != "finished":
+		var parent = turn_actions if compact_layout or kick_plan.is_empty() else hud
+		if primary.get_parent() != parent:
+			primary.reparent(parent, false)
+			_layout.call_deferred()
 	_position_confirmation()
 	if results.visible:
 		var compact = safe.size.y < 500
@@ -464,14 +533,18 @@ func _confirm_kick(automatic: bool = false) -> void:
 		_layout.call_deferred()
 		return
 	animating = true
+	pending_save = _snapshot(finished)
+	_save_match()
 	feedback.hide()
 	_render()
 	await board.play_kick(state, kick_plan)
 	if next.phase == "goal":
 		var origin = state
 		state = next
+		audio.play("goal")
 		await celebration.play(origin, kick_plan)
 	animating = false
+	pending_save.clear()
 	_accept(finished, false)
 
 func _roll_turn(automatic: bool = false) -> void:
@@ -489,14 +562,20 @@ func _roll_turn(automatic: bool = false) -> void:
 	if not next.has("error"):
 		die_badge.tint = Kits.accent(team_kits[next.team])
 	var result_text = "A tie!" if next.has("error") else "%s · %d %s" % [team_kits[next.team].name.to_upper(), moves, "move" if moves == 1 else "moves"]
-	menu.disabled = true
+	if not next.has("error"):
+		pending_save = _snapshot(next)
+		_save_match()
+	audio.play("dice")
 	await dice.reveal(values, moves, result_text, die_badge)
 	animating = false
 	menu.disabled = false
+	pending_save.clear()
 	if not next.has("error"):
 		_accept(next, false)
 
 func _render() -> void:
+	if screen == "match":
+		_save_match()
 	var view = _preview_state()
 	if screen != "match":
 		results.hide()
@@ -507,7 +586,7 @@ func _render() -> void:
 		dice.hide()
 		_layout.call_deferred()
 		return
-	var action_parent = result_actions if state.phase == "finished" else (hud if not kick_plan.is_empty() else turn_actions)
+	var action_parent = result_actions if state.phase == "finished" else (hud if not kick_plan.is_empty() and not compact_layout else turn_actions)
 	if primary.get_parent() != action_parent:
 		primary.reparent(action_parent, false)
 		if action_parent == result_actions:
@@ -544,7 +623,7 @@ func _render() -> void:
 		prompt.text = "Draw!" if view.winner == null else "%s wins!" % team_kits[view.winner].name
 		primary.text = "Play again"
 		primary.disabled = false
-		result_title.text = "HONOURS EVEN" if view.winner == null else "%s WINS" % team_kits[view.winner].name.to_upper()
+		result_title.text = "HONOURS EVEN" if view.winner == null else (("YOU WIN!" if view.winner == "blue" else "COMPUTER WINS") if computer_team != "" else "%s WINS" % team_kits[view.winner].name.to_upper())
 		result_score.text = _score_text()
 		header.hide()
 		dock.hide()
@@ -558,8 +637,18 @@ func _render() -> void:
 			primary.hide()
 			feedback.text = finished.error
 			feedback.show()
-	elif view.phase == "review" and primary.disabled:
+	elif view.phase in ["run", "review"] and primary.disabled:
 		feedback.text = str(Rules.end_turn_errors(view)[0])
+		feedback.show()
+	if not feedback.visible and view.phase not in ["review", "finished"] and (kick_plan.is_empty() or primary.disabled):
+		var tips = {"select": "Choose a highlighted player. Arrow keys + Enter also work.", "run": "Run to the ball to start a kick. Z / Undo revises your last step.", "kick": "Plan the highlighted route. One free step and one 45° bend per kick.", "relocate": "Move your runner to a highlighted square outside the goal mouth."}
+		if view.opening:
+			feedback.text = "Kickoff must use the exact dice difference; no free step."
+		else:
+			feedback.text = tips.get(view.phase, "")
+		feedback.visible = not feedback.text.is_empty() and not compact_layout
+	if not save_error.is_empty():
+		feedback.text = save_error
 		feedback.show()
 	if animating:
 		prompt.text = "Ball in play…"
@@ -577,13 +666,18 @@ func _render() -> void:
 			dice.second.disabled = true
 			dice.caption.text = "Computer is rolling…"
 		if computer_failed:
-			feedback.text = "No legal computer turn found. Restart from the match menu."
+			primary.text = "Take over"
+			primary.show()
+			primary.disabled = false
+			feedback.text = "Computer could not finish. Take over this turn, or restart from Menu."
 			feedback.show()
 	elif state.phase == "ready" and computer_team != "":
 		dice.caption.text = "You’re %s · Computer is %s\nTap the dice · highest roll kicks off" % [team_kits.blue.name, team_kits.red.name]
 	undo_button.visible = (not history.is_empty() or not kick_plan.is_empty() or not relocation_preview.is_empty()) and view.phase != "finished" and not _is_computer_turn()
 	undo_button.disabled = animating or computer_busy
-	menu.disabled = animating or computer_busy
+	menu.disabled = false
+	for id in [0, 1, 2, 5, 7]:
+		menu.get_popup().set_item_disabled(menu.get_popup().get_item_index(id), animating or computer_busy)
 	_layout.call_deferred()
 	if _is_computer_turn() and not computer_busy and not animating and not computer_failed:
 		computer_busy = true
@@ -606,12 +700,18 @@ func _accept(next: Dictionary, remember: bool = true) -> void:
 	_render()
 
 func _primary() -> void:
+	if computer_failed:
+		computer_team = ""
+		computer_failed = false
+		computer_busy = false
+		_render()
+		return
 	if screen != "match" or animating or dice.visible or computer_busy or _is_computer_turn():
 		return
 	if not kick_plan.is_empty():
 		_confirm_kick()
 	elif state.phase == "finished":
-		_open_setup(computer_team)
+		_rematch()
 	else:
 		_accept(Rules.commit_turn(state), false)
 
@@ -669,12 +769,21 @@ func _revisit_square(hit: Dictionary) -> bool:
 	return false
 
 func _menu_action(id: int) -> void:
+	if id == 6:
+		session_menu.open()
+		return
 	if screen != "match" or animating or computer_busy:
 		return
 	match id:
 		0:
 			board.top_view = not board.top_view
 			menu.get_popup().set_item_checked(0, board.top_view)
+			_layout()
+		7:
+			board.orbit_yaw = 0.0
+			board.orbit_tilt = 0.0
+			board.top_view = false
+			menu.get_popup().set_item_checked(0, false)
 			_layout()
 		1: _show_help()
 		2, 3, 4, 5:
@@ -692,22 +801,50 @@ func _menu_action(id: int) -> void:
 				restart.popup_centered_clamped(Vector2i(440, 180), 0.9)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		_keyboard(event)
+		return
+	if not _can_orbit():
+		return
 	if event is InputEventScreenTouch:
-		if event.pressed and touch_index == -1:
+		if event.pressed and touch_index == -1 and not mouse_pressed and play_area.has_point(event.position):
 			touch_index = event.index
-			press_position = event.position
-		elif not event.pressed and event.index == touch_index:
-			if not event.canceled and press_position.distance_to(event.position) < 12:
-				_tap(event.position)
-			touch_index = -1
-			press_position = Vector2.INF
+			_begin_pointer(event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			press_position = event.position
-		else:
-			if press_position.distance_to(event.position) < 8:
-				_tap(event.position)
-			press_position = Vector2.INF
+		if event.pressed and touch_index == -1 and play_area.has_point(event.position):
+			mouse_pressed = true
+			_begin_pointer(event.position)
+
+func _can_orbit() -> bool:
+	return screen == "match" and not animating and not dice.visible and not computer_busy and state.phase != "finished" and not get_tree().paused and not help.visible and not restart.visible and not menu.get_popup().visible
+
+func _begin_pointer(position: Vector2) -> void:
+	press_position = position
+	pointer_last = position
+	pointer_dragged = false
+	get_viewport().set_input_as_handled()
+
+func _cancel_pointer() -> void:
+	touch_index = -1
+	mouse_pressed = false
+	press_position = Vector2.INF
+	pointer_dragged = false
+
+func _drag_pointer(position: Vector2) -> void:
+	if not _can_orbit():
+		_cancel_pointer()
+		return
+	if not pointer_dragged and press_position.distance_to(position) < 12:
+		return
+	pointer_dragged = true
+	board.orbit(position - pointer_last, play_area)
+	pointer_last = position
+
+func _end_pointer(position: Vector2, canceled: bool = false) -> void:
+	var tap = not canceled and not pointer_dragged and press_position.distance_to(position) < 12 and play_area.has_point(position) and _can_orbit()
+	_cancel_pointer()
+	if tap:
+		_tap(position)
 
 func _tap(position: Vector2) -> void:
 	if screen != "match" or animating or dice.visible or computer_busy or _is_computer_turn():
@@ -731,6 +868,13 @@ func _tap(position: Vector2) -> void:
 	if hit.has("pawn_id"):
 		var picked = Rules.pawn_by_id(view, hit.pawn_id)
 		hit = {"x": picked.x, "y": picked.y}
+	_choose_square(hit)
+
+func _choose_square(hit: Dictionary) -> void:
+	if screen != "match" or animating or dice.visible or computer_busy or _is_computer_turn():
+		return
+	var view = _preview_state()
+	audio.play("select")
 	if _revisit_square(hit):
 		return
 	if state.phase == "kick":
@@ -762,3 +906,154 @@ func _tap(position: Vector2) -> void:
 		match state.phase:
 			"run": _accept(Rules.run_step(state, hit.x, hit.y))
 			"relocate": _accept(Rules.relocate(state, hit.x, hit.y))
+
+func _keyboard(event: InputEventKey) -> void:
+	if screen != "match" or animating or dice.visible or computer_busy or help.visible or restart.visible:
+		return
+	var direction = Vector2.ZERO
+	match event.keycode:
+		KEY_LEFT: direction = Vector2.LEFT
+		KEY_RIGHT: direction = Vector2.RIGHT
+		KEY_UP: direction = Vector2.UP
+		KEY_DOWN: direction = Vector2.DOWN
+		KEY_Z, KEY_BACKSPACE: _undo()
+		KEY_C: _primary()
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			if keyboard_active:
+				_choose_square({"x": keyboard_cell.x, "y": keyboard_cell.y})
+		_: return
+	if direction != Vector2.ZERO:
+		var origin = board.camera.unproject_position(board.cell_position(keyboard_cell.x, keyboard_cell.y))
+		var best = Vector2i.ZERO
+		var score = -INF
+		for step in Rules.ORTHOGONAL:
+			var projected = board.camera.unproject_position(board.cell_position(keyboard_cell.x + step.x, keyboard_cell.y + step.y)) - origin
+			var alignment = projected.normalized().dot(direction)
+			if alignment > score:
+				score = alignment
+				best = step
+		keyboard_cell += best
+		keyboard_cell.x = clampi(keyboard_cell.x, -1, 10)
+		keyboard_cell.y = clampi(keyboard_cell.y, 0, 5)
+		keyboard_active = true
+		get_viewport().gui_release_focus()
+		board.show_keyboard_cell(keyboard_cell)
+	get_viewport().set_input_as_handled()
+
+func _snapshot(next: Dictionary = {}) -> Dictionary:
+	return {"version": 1, "state": state.duplicate(true) if next.is_empty() else next.duplicate(true),
+		"history": history.duplicate(true) if next.is_empty() else [], "plan": kick_plan.duplicate(true) if next.is_empty() else [],
+		"relocation": relocation_preview.duplicate(true) if next.is_empty() else {},
+		"opponent": computer_team, "kits": team_kits.duplicate(true)}
+
+func _save_match() -> void:
+	if not persistence_enabled or screen != "match":
+		return
+	var data = _snapshot() if pending_save.is_empty() else pending_save
+	if data == saved_match:
+		return
+	var error = Save.write_match(save_path, data)
+	if error == OK:
+		saved_match = data.duplicate(true)
+		save_error = ""
+	else:
+		save_error = "Could not save this match. Keep the game open to preserve progress."
+
+func _continue_match() -> void:
+	if saved_match.is_empty() or animating:
+		return
+	match_generation += 1
+	state = saved_match.state.duplicate(true)
+	history = saved_match.history.duplicate(true)
+	kick_plan.assign(saved_match.plan.duplicate(true))
+	relocation_preview = saved_match.relocation.duplicate(true)
+	computer_team = saved_match.opponent
+	for team in ["blue", "red"]:
+		team_kits[team] = Kits.make(saved_match.kits[team].index, saved_match.kits[team].design)
+	board.set_kits(team_kits)
+	dice.team_kits = team_kits
+	if computer_team == state.team:
+		kick_plan.clear()
+		relocation_preview.clear()
+	computer_busy = false
+	computer_failed = false
+	journey.mode = "game"
+	journey.room.hide()
+	journey.groundskeeper.hide()
+	if is_instance_valid(journey.hero):
+		journey.hero.hide()
+	screen = "match"
+	board.ball_target = Vector3.INF
+	board.camera.make_current()
+	_render()
+
+func _rematch() -> void:
+	match_generation += 1
+	computer_busy = false
+	computer_failed = false
+	board.ball_target = Vector3.INF
+	_accept(Rules.create_game(), false)
+	audio.play("whistle")
+
+func _load_preferences() -> void:
+	if not persistence_enabled:
+		return
+	var config = ConfigFile.new()
+	if config.load("user://preferences.cfg") == OK:
+		for key in preferences:
+			var value = config.get_value("options", key, false)
+			if value is bool:
+				preferences[key] = value
+
+func set_preference(key: String, value: bool) -> void:
+	if not preferences.has(key):
+		return
+	preferences[key] = value
+	_apply_preferences()
+	if persistence_enabled:
+		var config = ConfigFile.new()
+		for option in preferences:
+			config.set_value("options", option, preferences[option])
+		if config.save("user://preferences.cfg") != OK:
+			save_error = "Options could not be saved on this device."
+
+func _apply_preferences() -> void:
+	board.reduced_motion = preferences.reduced_motion
+	dice.reduced_motion = preferences.reduced_motion
+	audio.muted = preferences.muted
+	if preferences.reduced_motion and screen == "entrance":
+		journey.skip_entrance()
+
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED]:
+		_cancel_pointer()
+	if not persistence_enabled or session_menu == null:
+		return
+	if what in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_APPLICATION_PAUSED]:
+		_save_match()
+		if screen in ["match", "entrance"]:
+			session_menu.open()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_match()
+
+func _input(event: InputEvent) -> void:
+	# Own a board gesture through release, including when it crosses a HUD control.
+	if touch_index >= 0:
+		if event is InputEventScreenDrag and event.index == touch_index:
+			_drag_pointer(event.position)
+			get_viewport().set_input_as_handled()
+		elif event is InputEventScreenTouch:
+			if event.index == touch_index and not event.pressed:
+				_end_pointer(event.position, event.canceled)
+			elif event.pressed and event.index != touch_index:
+				_cancel_pointer()
+			get_viewport().set_input_as_handled()
+	elif mouse_pressed:
+		if event is InputEventMouseMotion:
+			_drag_pointer(event.position)
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			_end_pointer(event.position)
+			get_viewport().set_input_as_handled()
+	if event is InputEventKey and event.pressed and event.keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN] and not menu.get_popup().visible:
+		_keyboard(event)

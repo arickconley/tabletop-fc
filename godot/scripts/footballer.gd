@@ -32,9 +32,12 @@ static func build(board: Node3D, p: Dictionary, appearance: Dictionary) -> Stati
 		arm.name = "LeftArm" if side == -1 else "RightArm"
 		arm.position = Vector3(side * 0.245, 0.77, 0)
 		rig.add_child(arm)
-		board._rounded_box(arm, Vector3(0, -0.1, 0), Vector3(0.16, 0.22, 0.2), 0.07, kit)
-		board._rounded_box(arm, Vector3(side * 0.03, -0.25, 0.025), Vector3(0.12, 0.2, 0.13), 0.055, skin)
-		board._sphere(arm, Vector3(side * 0.03, -0.33, 0.045), 0.075, cream if p.keeper else skin)
+		board._rounded_box(arm, Vector3(0, -0.1, 0), Vector3(0.16, 0.22, 0.2), 0.08, kit)
+		var forearm = board._sphere(arm, Vector3(side * 0.03, -0.25, 0.025), 0.075, skin)
+		forearm.scale = Vector3(0.85, 1.65, 0.9)
+		var hand = board._sphere(arm, Vector3(side * 0.03, -0.33, 0.045), 0.075, cream if p.keeper else skin)
+		hand.visible = p.keeper
+
 	board._rounded_box(rig, Vector3(0, 0.43, 0), Vector3(0.35, 0.19, 0.25), 0.055, navy)
 	board._rounded_box(rig, Vector3(0, 0.66, 0), Vector3(0.38, 0.34, 0.28), 0.075, kit)
 	var design = Node3D.new()
@@ -43,10 +46,18 @@ static func build(board: Node3D, p: Dictionary, appearance: Dictionary) -> Stati
 	var trim = navy if team.get_luminance() > 0.5 else cream
 	if appearance.design == 1:
 		for x in [-0.09, 0.09]:
-			board._box(design, Vector3(x, 0.66, 0.142), Vector3(0.045, 0.25, 0.008), trim)
+			var stripe = Node3D.new()
+			design.add_child(stripe)
+			for z in [-0.143, 0.143]:
+				board._box(stripe, Vector3(x, 0.66, z), Vector3(0.04, 0.24, 0.006), trim)
 	elif appearance.design == 2:
 		for y in [0.59, 0.71]:
-			board._box(design, Vector3(0, y, 0.142), Vector3(0.33, 0.04, 0.008), trim)
+			var hoop = Node3D.new()
+			design.add_child(hoop)
+			for z in [-0.143, 0.143]:
+				board._box(hoop, Vector3(0, y, z), Vector3(0.25, 0.035, 0.006), trim)
+			for x in [-0.193, 0.193]:
+				board._box(hoop, Vector3(x, y, 0), Vector3(0.006, 0.035, 0.13), trim)
 	board._cylinder(rig, Vector3(0, 0.83, 0), 0.095, 0.035, cream)
 	board._sphere(rig, Vector3(-0.105, 0.73, 0.148), 0.025, cream)
 	board._rounded_box(rig, Vector3(0, 1.055, 0), Vector3(0.46, 0.46, 0.42), 0.16, skin)
@@ -69,17 +80,18 @@ static func build(board: Node3D, p: Dictionary, appearance: Dictionary) -> Stati
 	else:
 		board._rounded_box(rig, Vector3(0, 1.32, -0.01), Vector3(0.12, 0.15, 0.36), 0.055, hair)
 	var number = Label3D.new()
-	number.text = "1" if p.keeper else p.id.right(1)
+	number.text = str(int(p.id.right(1)) + 1)
 	number.font = preload("res://assets/fonts/BarlowCondensed-SemiBold.ttf")
 	number.font_size = 48
 	number.pixel_size = 0.0035
-	number.position = Vector3(0, 0.65, -0.145)
+	number.position = Vector3(0, 0.65, -0.15)
 	number.rotation.y = PI
 	number.modulate = trim if not p.keeper else cream
-	number.outline_size = 0
+	number.outline_size = 5
+	number.outline_modulate = kit
 	rig.add_child(number)
 	var label = Label3D.new()
-	label.text = "K" if p.keeper else p.id.right(1)
+	label.text = "K" if p.keeper else str(int(p.id.right(1)) + 1)
 	label.font = number.font
 	label.font_size = 40
 	label.pixel_size = 0.005

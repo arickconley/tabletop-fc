@@ -66,7 +66,8 @@ func _ready() -> void:
 	viewport.own_world_3d = true
 	viewport.transparent_bg = true
 	viewport.gui_disable_input = true
-	viewport.msaa_3d = Viewport.MSAA_4X
+	# Matching the main viewport avoids recompiling pipelines when dice appear.
+	viewport.msaa_3d = get_viewport().msaa_3d
 	viewport.size = Vector2i(256, 256)
 	add_child(viewport)
 	var world = WorldEnvironment.new()
@@ -146,7 +147,11 @@ func _draw() -> void:
 	if not disabled and has_focus():
 		draw_line(Vector2(size.x * 0.28, size.y * 0.94), Vector2(size.x * 0.72, size.y * 0.94), Color("d8ff3e"), 2, true)
 
-func roll_to(value: int) -> void:
+func roll_to(value: int, reduced_motion: bool = false) -> void:
+	if reduced_motion:
+		face = value
+		await get_tree().process_frame
+		return
 	var start = rig.rotation
 	face = value
 	var end = resting_basis(face).get_euler() + Vector3(TAU * 2, TAU * 3, TAU)
@@ -157,7 +162,7 @@ func roll_to(value: int) -> void:
 	motion.tween_method(func(progress: float):
 		rig.rotation = start.lerp(end, progress)
 		rig.position.y = sin(progress * PI) * 0.23
-	, 0.0, 1.0, 0.85).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	, 0.0, 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	await motion.finished
 	rig.position = Vector3.ZERO
 	rig.basis = resting_basis(face)

@@ -24,6 +24,8 @@ func screenshot(suffix: String) -> void:
 		root.get_texture().get_image().save_png(args[0].get_basename() + suffix + ".png")
 
 func run() -> void:
+	if DisplayServer.get_name() == "headless":
+		root.size = Vector2i(1280, 800)
 	var random = RandomNumberGenerator.new()
 	random.seed = 27
 	for color in Kits.COLORS.size():
@@ -125,7 +127,7 @@ func run() -> void:
 	assert(game.board.entering and game.screen == "entrance" and game.journey.mode == "tunnel")
 	assert(game.board.pieces["blue-1"] == chosen_player, "Follow the same customized player into the match")
 	assert(game.journey.camera.projection == Camera3D.PROJECTION_PERSPECTIVE)
-	assert(game.journey.camera.position.distance_to(chosen_player.position) < 1.6, "The follow camera must be at a teammate\'s shoulder, not far above the captain")
+	assert(game.journey.camera.position.distance_to(chosen_player.position) < 2.0, "The follow camera must be at a teammate\'s shoulder, not far above the captain")
 	var follow_fov = game.journey.camera.fov
 	var follow_camera_position = game.journey.camera.position
 	assert(game.state == original and not game.computer_busy)

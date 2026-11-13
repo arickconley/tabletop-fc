@@ -1,6 +1,8 @@
 class_name TeamLobby
 extends Control
 
+signal continue_requested
+signal options_requested
 signal play_requested
 signal back_requested
 signal start_requested(color_index: int, design_index: int, opponent: String)
@@ -28,6 +30,9 @@ var color_label: Label
 var title: Label
 var tagline: Label
 var how_to_button: Button
+var continue_button: Button
+var options_button: Button
+var save_notice: Label
 var play_button: Button
 var start_button: Button
 var back_button: Button
@@ -65,9 +70,18 @@ func _ready() -> void:
 	crest.rotation = -0.13
 	title.add_child(crest)
 	play_button = game._button("Play match", func(): play_requested.emit(), true)
+	continue_button = game._button("Continue match", func(): continue_requested.emit(), true)
+	home.add_child(continue_button)
+	continue_button.hide()
 	home.add_child(play_button)
 	how_to_button = game._button("How to play", func(): game._show_help())
 	home.add_child(how_to_button)
+	options_button = game._button("Options", func(): options_requested.emit())
+	home.add_child(options_button)
+	save_notice = game._label("", 16, UI.MUTED)
+	save_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	home.add_child(save_notice)
+	save_notice.hide()
 	setup_scroll = ScrollContainer.new()
 	setup_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(setup_scroll)
@@ -181,7 +195,9 @@ func _refresh() -> void:
 		var selected = (i == 0) == (opponent == "red")
 		modes.get_child(i).text = ("✓ " if selected else "") + ("Computer" if i == 0 else "2 players")
 		UI.button(modes.get_child(i), false, selected)
-	game.journey.dress(Kits.make(selected_color, selected_design))
+	var kit = Kits.make(selected_color, selected_design)
+	if not is_instance_valid(game.journey.hero) or game.journey.hero.get_parent() != game.journey or game.journey.hero.get_meta("kit") != kit:
+		game.journey.dress(kit)
 
 func _layout() -> void:
 	if setup == null:
@@ -194,19 +210,20 @@ func _layout() -> void:
 	var portrait = safe.size.x < 700 and safe.size.y > safe.size.x
 	shade.material.set_shader_parameter("portrait", portrait)
 	var compact = portrait or safe.size.y < 440
+	tagline.visible = safe.size.y >= 440
 	var home_scale = 1.0 if compact else clampf(minf(safe.size.x / 900.0, safe.size.y / 600.0) * 1.35, 1.15, 1.8)
-	title.add_theme_font_size_override("font_size", roundi((58 if compact else 82) * home_scale))
+	title.add_theme_font_size_override("font_size", roundi((42 if compact and continue_button.visible else 50 if compact else 82) * home_scale))
 	title.add_theme_constant_override("line_spacing", roundi(-20 * home_scale))
 	title.add_theme_constant_override("shadow_offset_y", roundi(4 * home_scale))
 	crest.add_theme_font_size_override("font_size", roundi(30 * home_scale))
-	crest.position = Vector2(120 if compact else 166, 85 if compact else 115) * home_scale
+	crest.position = Vector2(105, 45) * (title.get_theme_font_size("font_size") / 50.0) if compact else Vector2(166, 115) * home_scale
 	broadcast.add_theme_font_size_override("font_size", roundi(14 * home_scale))
 	broadcast.position = safe.position + Vector2(24, 14) * home_scale
 	tagline.add_theme_font_size_override("font_size", roundi(14 * home_scale))
-	for button in [play_button, how_to_button]:
+	for button in [play_button, how_to_button, continue_button, options_button]:
 		button.add_theme_font_size_override("font_size", roundi(20 * home_scale))
 		button.custom_minimum_size.y = 44 * home_scale
-	home.add_theme_constant_override("separation", roundi(8 * home_scale))
+	home.add_theme_constant_override("separation", roundi((6 if safe.size.y < 440 else 8) * home_scale))
 	var width = minf(370, safe.size.x - 32) if portrait else minf(390, safe.size.x * 0.5 - 16)
 	swatches.columns = 6 if width >= 304 else 4
 	setup.get_child(0).visible = safe.size.y >= 500
@@ -224,8 +241,16 @@ func _layout() -> void:
 		setup_scroll.position = safe.position + Vector2(left, hero_height + 8)
 		setup_scroll.size = Vector2(width, maxf(80, safe.size.y - hero_height - 80))
 	else:
-		home.position = safe.position + Vector2(32 * home_scale, maxf(48, (safe.size.y - home.size.y) * 0.5))
+		home.position = safe.position + Vector2(32 * home_scale, maxf(36 if compact else 48, (safe.size.y - home.size.y) * 0.5))
 		var height = minf(480, safe.size.y - 100)
 		setup_scroll.position = safe.position + Vector2(left, (safe.size.y - height - 60) * 0.5)
 		setup_scroll.size = Vector2(width, height)
 		footer.position = setup_scroll.position + Vector2(0, height + 8)
+
+func update_continue(available: bool, notice: String = "") -> void:
+	continue_button.visible = available
+	play_button.text = "New match" if available else "Play match"
+	UI.button(play_button, not available)
+	save_notice.text = notice
+	save_notice.visible = not notice.is_empty()
+	_layout.call_deferred()

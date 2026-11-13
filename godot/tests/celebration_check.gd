@@ -45,6 +45,8 @@ func run() -> void:
 			{"id": ("red" if blue else "blue") + "-1", "team": "red" if blue else "blue", "x": 1 if blue else 8, "y": 5, "keeper": false}]
 		game._accept(start, false)
 		game.board.top_view = not blue
+		game.board.orbit_yaw = 0.4
+		game.board.orbit_tilt = 0.12
 		game._layout()
 		await create_timer(0.7).timeout
 		var view = start
@@ -61,6 +63,20 @@ func run() -> void:
 		assert(game.celebration.path.size() == 4, "Replay only the final kick, not its preceding pass")
 		assert(game.celebration.path[0].is_equal_approx(game.board._ball_position(game.kick_plan[3])))
 		assert(game.get_viewport().get_camera_3d() == game.celebration.camera)
+		var elapsed = game.celebration.elapsed
+		game.celebration.elapsed = 0.0
+		game.celebration._frame()
+		var world_point = Vector3.ZERO
+		assert(game.celebration.camera.unproject_position(world_point).distance_to(game.board.camera.unproject_position(world_point)) < 0.1, "Replay entry preserves the entire camera framing, including offsets")
+		var boundary = 1.15 + 2.0 * game.celebration.path_lengths[1] / game.celebration.path_lengths.back()
+		game.celebration.elapsed = boundary - 0.00001
+		game.celebration._frame()
+		var spin = game.board.ball.basis.get_rotation_quaternion()
+		game.celebration.elapsed = boundary + 0.00001
+		game.celebration._frame()
+		assert(spin.angle_to(game.board.ball.basis.get_rotation_quaternion()) < 0.01, "Replay spin stays continuous between segments")
+		game.celebration.elapsed = elapsed
+		game.celebration._frame()
 		assert(not game.header.visible and not game.dock.visible and game.celebration.overlay.visible)
 		var labels_before = game.celebration.labels.duplicate()
 		for label in labels_before:
@@ -82,6 +98,12 @@ func run() -> void:
 		await wait_for_cinematic(game, 3.9)
 		assert(game.celebration.effects.get_child_count() >= 2)
 		await capture(team + "-fireworks")
+		elapsed = game.celebration.elapsed
+		game.celebration.elapsed = game.celebration.DURATION - 0.001
+		game.celebration._frame()
+		assert(game.celebration.camera.unproject_position(world_point).distance_to(game.board.camera.unproject_position(world_point)) < 0.1, "Replay exit restores framing without a camera snap")
+		game.celebration.elapsed = elapsed
+		game.celebration._frame()
 		if not blue:
 			root.size = Vector2i(390, 844)
 			root.content_scale_size = Vector2i(390, 844)
@@ -130,7 +152,8 @@ func run() -> void:
 		var escape = InputEventKey.new()
 		escape.keycode = KEY_ESCAPE
 		escape.pressed = true
-		game.celebration._unhandled_key_input(escape)
+		game.session_menu._input(escape)
+		assert(not game.session_menu.opened, "Escape skips a replay before opening pause")
 		game.celebration.finish()
 		assert(game.state == Rules.continue_after_goal(goal))
 		assert(game.state.phase == ("halftime" if half == 1 else "finished"))

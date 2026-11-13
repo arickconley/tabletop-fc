@@ -87,11 +87,7 @@ func run() -> void:
 	assert(game.state.rolls == {"blue": 20, "red": 20})
 	assert(game.primary.visible and game.primary.text == "Play again" and not game.primary.disabled)
 	game._primary()
-	var deadline = Time.get_ticks_msec() + 5000
-	while game.screen != "setup" and Time.get_ticks_msec() < deadline:
-		await process_frame
-	assert(game.state.phase == "ready" and game.computer_team == "red" and game.screen == "setup")
-	game.screen = "match"
+	assert(game.state.phase == "ready" and game.computer_team == "red" and game.screen == "match")
 	# A stale deferred turn cannot move pieces in a replacement match.
 	game._accept(normal, false)
 	game._new_match("")

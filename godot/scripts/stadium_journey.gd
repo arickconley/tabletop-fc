@@ -11,6 +11,9 @@ var room: Node3D
 var room_geometry: Array[GeometryInstance3D] = []
 var hero: Node3D
 var groundskeeper: Node3D
+var skip_requested = false
+var walk_motion: Tween
+var crane_motion: Tween
 var mode = "home"
 var elapsed = 0.0
 var destination = Vector3.ZERO
@@ -87,28 +90,28 @@ func dress(kit: Dictionary) -> void:
 func _process(delta: float) -> void:
 	if board == null:
 		return
-	elapsed += delta
+	elapsed += 0.0 if board.reduced_motion else delta
 	# Cut away foreground architecture as the camera rises, keeping every square visible.
 	var cutaway = clampf((camera.position.y - 4.0) / 3.0, 0.0, 1.0)
 	room.visible = cutaway < 1.0
 	if room.visible:
 		for geometry in room_geometry:
 			geometry.transparency = cutaway
-	if mode == "home":
+	if mode == "home" and not board.reduced_motion:
 		var direction = destination - groundskeeper.position
 		if direction.length() < 0.12:
 			_next_destination()
 		else:
 			groundskeeper.position = groundskeeper.position.move_toward(destination, delta * 0.65)
 			groundskeeper.get_node("Rig").rotation.y = lerp_angle(groundskeeper.get_node("Rig").rotation.y, atan2(direction.x, direction.z), minf(1, delta * 3))
-			Footballer.animate(groundskeeper, elapsed * 0.45, true)
+			Footballer.animate(groundskeeper, 0.0 if board.reduced_motion else elapsed * 0.45, not board.reduced_motion)
 			# Keep both hands on the handle after the shared walk cycle animates the limbs.
 			for name in ["LeftArm", "RightArm"]:
 				var arm = groundskeeper.get_node("Rig/" + name)
 				arm.basis = arm.get_meta("push_basis")
 	elif mode == "locker" and is_instance_valid(hero):
-		Footballer.animate(hero, elapsed)
-		hero.get_node("Rig").rotation.y = -0.15 + sin(elapsed * 0.6) * 0.12
+		Footballer.animate(hero, 0.0 if board.reduced_motion else elapsed)
+		hero.get_node("Rig").rotation.y = -0.15 + (0.0 if board.reduced_motion else sin(elapsed * 0.6) * 0.12)
 
 func _home_pose() -> Dictionary:
 	return $Shots/HomePortrait.pose() if get_viewport().get_visible_rect().size.y > get_viewport().get_visible_rect().size.x else $Shots/HomeLandscape.pose()
@@ -136,6 +139,8 @@ func _travel(pose: Dictionary, duration: float) -> void:
 		camera_motion.kill()
 	camera_destination = pose
 	camera_motion = create_tween()
+	if skip_requested or board.reduced_motion:
+		camera_motion.set_speed_scale(1000.0)
 	camera_motion.tween_method(_blend.bind(start, pose), 0.0, 1.0, duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await camera_motion.finished
 
@@ -159,6 +164,7 @@ func home() -> void:
 	resize_view()
 
 func to_locker() -> void:
+	skip_requested = false
 	if mode == "game":
 		_set_pose({"transform": board.camera.global_transform, "size": board.camera.size, "fov": board.camera.fov, "h": board.camera.h_offset, "v": board.camera.v_offset})
 	mode = "travel"
@@ -172,6 +178,7 @@ func to_locker() -> void:
 	resize_view()
 
 func to_home() -> void:
+	skip_requested = false
 	if mode == "game":
 		_set_pose({"transform": board.camera.global_transform, "size": board.camera.size, "fov": board.camera.fov, "h": board.camera.h_offset, "v": board.camera.v_offset})
 		camera.make_current()
@@ -186,7 +193,11 @@ func to_home() -> void:
 
 func _follow_pose() -> Dictionary:
 	var pose = $Shots/Shoulder.pose()
-	pose.transform.origin += hero.global_position - $Shots/Shoulder.global_position
+	var origin = hero.global_position
+	pose.transform.origin += origin - $Shots/Shoulder.global_position
+	pose.transform.origin.z += 0.5
+	pose.transform.origin.y += 0.12
+	pose.transform = pose.transform.looking_at(origin + Vector3(-2.2, 0.8, 0.0))
 	return pose
 
 func _walk(progress: float, start: Vector3, finish: Vector3) -> void:
@@ -197,10 +208,15 @@ func _walk(progress: float, start: Vector3, finish: Vector3) -> void:
 	_set_pose(_follow_pose())
 
 func _crane(progress: float, finish: Dictionary) -> void:
-	# Keep tracking the runner while gradually releasing into the match framing.
-	_blend(progress, _follow_pose(), finish)
+	# Track a visible subject throughout the rise instead of blending two unrelated aim directions.
+	var start = _follow_pose()
+	var target = hero.global_position.lerp(Vector3(0, 0.5, 0), progress)
+	_blend(progress, start, finish)
+	var tracking = camera.global_transform.looking_at(target + Vector3.UP * 0.55)
+	camera.global_transform = tracking.interpolate_with(finish.transform, smoothstep(0.65, 1.0, progress))
 
 func walk_out(state: Dictionary) -> void:
+	skip_requested = skip_requested or board.reduced_motion
 	mode = "travel"
 	groundskeeper.hide()
 	hero.show()
@@ -213,12 +229,20 @@ func walk_out(state: Dictionary) -> void:
 	mode = "tunnel"
 	for point in [board.to_local($Blocking/Door.global_position), board.to_local($Blocking/PitchEntry.global_position)]:
 		var tween = create_tween()
+		walk_motion = tween
+		if skip_requested or board.reduced_motion:
+			tween.set_speed_scale(1000.0)
 		tween.tween_method(_walk.bind(hero.position, point), 0.0, 1.0, hero.position.distance_to(point) / 1.8)
 		await tween.finished
 	mode = "crane"
 	board.enter_pitch(state, "blue-1")
+	if skip_requested:
+		board.entrance_motion.set_speed_scale(1000.0)
 	var final = {"transform": board.camera.global_transform, "size": board.camera.size, "fov": board.camera.fov, "h": board.camera.h_offset, "v": board.camera.v_offset}
 	var crane = create_tween()
+	crane_motion = crane
+	if skip_requested or board.reduced_motion:
+		crane.set_speed_scale(1000.0)
 	crane.tween_method(_crane.bind(final), 0.0, 1.0, 4.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await crane.finished
 	if board.entering:
@@ -235,3 +259,9 @@ func walk_out(state: Dictionary) -> void:
 	board.ball.show()
 	mode = "game"
 	board.camera.make_current()
+
+func skip_entrance() -> void:
+	skip_requested = true
+	for tween in [camera_motion, walk_motion, crane_motion, board.entrance_motion]:
+		if tween != null and tween.is_valid():
+			tween.set_speed_scale(1000.0)
